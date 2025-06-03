@@ -114,11 +114,11 @@
 4. **目录树**  
    当你配置完毕后，目录树结构应当如下：
    ```bash
-   .
-   ├── cookies/
-   ├──|── your_username.json
-   ├── config.json
-   └── QDjob.exe
+    .
+    ├── cookies/
+    │   └── your_username.json
+    ├── config.json
+    └── QDjob.exe
    ```
 5. **运行QidianApp.exe程序**
 
