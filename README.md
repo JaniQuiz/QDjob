@@ -41,7 +41,7 @@
 由于本项目核心加密参数不公开，因此请下载release中的exe文件，并按照以下步骤使用。  
 1. **下载release中的exe文件**
 2. **创建配置config.json文件**  
-<span style="color:red; font-size:small;">关于配置文件，我后续会做一个GUI来辅助配置config，敬请期待。</span>    
+<font color="red" size="-1">关于配置文件，我后续会做一个GUI来辅助配置config，敬请期待。</font>    
    配置文件说明：
    - log_level: 日志级别，可选值：DEBUG/INFO/ERROR，默认INFO
    - log_retention_days: 日志保留天数，默认7天
