@@ -53,7 +53,7 @@
    - users: 用户列表，每个用户包含以下字段
      - username: 用户名
      - cookies_file: 用户cookies文件名，默认为cookies/{username}.json
-     - user_agent: 为每个用户单独配置UA
+     - user_agent: 为每个用户单独配置UA，不填则默认使用default_user_agent
      - tasks: 任务列表，true表示执行，false表示不执行
      - push_services: 推送服务列表，按需配置，如果不需要，请直接删除。其中飞书推送时，如果你配置了secret，请设置havesign为true，并填写secret。
  
@@ -63,12 +63,12 @@
         "log_level": "INFO",
         "log_retention_days": 7,
         "retry_attempts": 3,
-        "default_user_agent": "QDReaderAndroid/7.9.360",
+        "default_user_agent": "Mozilla/5.0 (Linux; Android 13; PDEM10 Build/TP1A.220905.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/109.0.5414.86 MQQBrowser/6.2 TBS/047601 Mobile Safari/537.36 QDJSSDK/1.0  QDNightStyle_1  QDReaderAndroid/7.9.384/1466/1000032/OPPO/QDShowNativeLoading",
         "users": [
             {
             "username": "your_username",
             "cookies_file": "cookies/your_username.json",
-            "user_agent": "Mozilla/5.0 (Linux; Android 13; PDEM10 Build/TP1A.220905.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/109.0.5414.86 MQQBrowser/6.2 TBS/047601 Mobile Safari/537.36 QDJSSDK/1.0  QDNightStyle_1  QDReaderAndroid/7.9.384/1466/1000032/OPPO/QDShowNativeLoading",
+            "user_agent": "",
             "tasks": {
                 "签到任务": true,
                 "激励碎片任务": true,
