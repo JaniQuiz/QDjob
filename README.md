@@ -118,7 +118,7 @@
    ├── cookies/
    ├──|── your_username.json
    ├── config.json
-   └── QidianApp.exe
+   └── QDjob.exe
    ```
 5. **运行QidianApp.exe程序**
 
