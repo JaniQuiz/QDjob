@@ -39,8 +39,8 @@
 
 ## 使用方法
 由于本项目核心加密参数不公开，因此请下载release中的exe文件，并按照以下步骤使用。  
-1. **下载release中的QDjob.exe和QDjob配置编辑器.exe文件，放到同一个目录下**
-2. **运行QDjob配置编辑器.exe，软件会自动创建配置config.json文件，按照下面说明配置用户，目前最大支持3个账号，如果需要无限制版本，请联系我**  
+1. **下载release中的QDjob.exe和QDjob_editor.exe文件，放到同一个目录下**
+2. **运行QDjob_editor.exe，软件会自动创建配置config.json文件，按照下面说明配置用户，目前最大支持3个账号，如果需要无限制版本，请联系我**  
    配置文件说明：
    - log_level: 日志级别，可选值：DEBUG/INFO/ERROR，默认INFO
    - log_retention_days: 日志保留天数，默认7天
@@ -84,9 +84,9 @@
     │   └── your_username.json
     ├── config.json
     ├── QDjob.exe
-    └── QDjob配置编辑器.exe
+    └── QDjob_editor.exe
    ```
-5. **运行QDjob.exe程序或在QDjob配置编辑器.exe中点击执行任务**  
+5. **运行QDjob.exe程序或在QDjob_editor.exe中点击执行任务**  
 
 ### 配置日常运行  
 请在完成了上面的配置后，按照以下步骤实现每日自动托管运行。
