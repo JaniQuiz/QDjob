@@ -14,8 +14,8 @@
 
 2. **多平台推送支持**  
    目前仅支持以下推送服务，如果有想要更多支持的推送服务，欢迎提issue。
-   - 飞书群聊机器人(webhookurl, secret)，创建一个群，然后就可以为群内添加机器人
-   - Server酱(SCKEY)
+   - 飞书群聊机器人(`webhookurl`, `secret`)，创建一个群，然后就可以为群内添加机器人
+   - Server酱(`SCKEY`)
 
 3. **智能重试机制**  
    - 自动重试失败任务，默认最大重试3次（可配置重试次数）
@@ -24,7 +24,7 @@
 4. **完整日志系统**  
    - 支持按天分割日志
    - 可配置日志保留周期，默认是7天
-   - 多级别日志记录（DEBUG/INFO/ERROR，默认INFO）
+   - 多级别日志记录（`DEBUG/INFO/ERROR`，默认`INFO`）
 
 ## 项目架构
 ```bash
@@ -39,26 +39,26 @@
 
 ## 使用方法
 由于本项目核心加密参数不公开，因此请下载release中的exe文件，并按照以下步骤使用。  
-1. **下载release中的QDjob.exe和QDjob_editor.exe文件，放到同一个目录下**
-2. **运行QDjob_editor.exe，软件会自动创建配置config.json文件，按照下面说明配置用户，目前最大支持3个账号，如果需要无限制版本，请联系我**  
+1. **下载release中的`QDjob.exe`和`QDjob_editor.exe`文件，放到同一个目录下**
+2. **运行`QDjob_editor.exe`，软件会自动创建配置`config.json`文件，按照下面说明配置用户，目前最大支持3个账号，如果需要无限制版本，请联系我**  
    配置文件说明：
-   - log_level: 日志级别，可选值：DEBUG/INFO/ERROR，默认INFO
-   - log_retention_days: 日志保留天数，默认7天
-   - retry_attempts: 失败重试次数，默认3次
-   - default_user_agent: 默认用户代理，请以自己抓包获取的数据为准，其中末尾的7.9.384和1466代表起点版本
+   - `log_level`: 日志级别，可选值：`DEBUG/INFO/ERROR`，默认`INFO`
+   - `log_retention_days`: 日志保留天数，默认7天
+   - `retry_attempts`: 失败重试次数，默认3次
+   - `default_user_agent`: 默认用户代理，请以自己抓包获取的数据为准，其中末尾的7.9.384和1466代表起点版本
         ```bash
         Mozilla/5.0 (Linux; Android 13; PDEM10 Build/TP1A.220905.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/109.0.5414.86 MQQBrowser/6.2 TBS/047601 Mobile Safari/537.36 QDJSSDK/1.0  QDNightStyle_1  QDReaderAndroid/7.9.384/1466/1000032/OPPO/QDShowNativeLoading
         ```
-   - users: 用户列表，每个用户包含以下字段
-     - username: 用户名
-     - cookies_file: 用户cookies文件名，默认为cookies/{username}.json
-     - user_agent: 为每个用户单独配置UA，不填则默认使用default_user_agent
-     - tasks: 任务列表，true表示执行，false表示不执行
-     - push_services: 推送服务列表，按需配置，如果不需要，请直接删除。其中飞书推送时，如果你配置了secret，请设置havesign为true，并填写secret。
-3. **每个用户都需要配置cookies文件，也就是你的账号，目前仅支持抓包获取，后续会添加登录功能。**  
-   即便后面添加了登录功能，但还是更推荐你使用抓包获取cookies，可以有效防止账号遇到验证码。  
-   起点并没有对抓包有什么限制，使用常用的抓包软件就行，这里放上[小黄鸟(过检测版)](https://wwqe.lanzouo.com/iImXX2y6ysje) 密码:3bt2  
-   请将你抓包获取到的cookies放在cookies配置框，软件提供了字符串格式cookies的转换功能，QDInfo可以为空，其他字段尽量包含，具体那些字段不能缺我也没测。最终格式如下：
+   - `users`: 用户列表，每个用户包含以下字段
+     - `username`: 用户名
+     - `cookies_file`: 用户`cookies`文件名，默认为`cookies/{username}.json`
+     - `user_agent`: 为每个用户单独配置UA，不填则默认使用`default_user_agent`
+     - `tasks`: 任务列表，选中表示执行，不选中则不执行
+     - `push_services`: 推送服务列表，按需配置，如果不需要，请直接删除。其中飞书推送时，如果你配置了签名验证，请选中`是否有签名验证`，并填写`秘钥`。
+3. **每个用户都需要配置`cookies`文件，也就是你的账号，目前仅支持抓包获取，后续会添加登录功能。**  
+   即便后面添加了登录功能，但还是更推荐你使用抓包获取`cookies`，可以有效防止账号遇到验证码。  
+   起点并没有对抓包有什么限制，使用常用的抓包软件就行，这里放上[小黄鸟(过检测版)](https://wwqe.lanzouo.com/iImXX2y6ysje) 密码:`3bt2`  
+   请将你抓包获取到的`cookies`放在`cookies`配置框，软件提供了字符串格式`cookies`的转换功能，`QDInfo`可以为空，其他字段尽量包含，具体那些字段不能缺我也没测。最终格式如下：
    ```json
    {
         "appId": "",
@@ -86,20 +86,20 @@
     ├── QDjob.exe
     └── QDjob_editor.exe
    ```
-5. **运行QDjob.exe程序或在QDjob_editor.exe中点击执行任务**  
+5. **运行`QDjob.exe`程序或在`QDjob_editor.exe`中点击执行任务**  
 
 ### 配置日常运行  
 请在完成了上面的配置后，按照以下步骤实现每日自动托管运行。
 1. **任务计划程序**  
-将QDjob.exe程序放入计划任务中，并设置计划任务执行时间，建议设置为每天0点执行。  
-2. **ztasker(推荐)**  
-使用ztasker来配置每日执行，比任务计划程序更加稳定。点这里：[官网网址](https://www.everauto.net/cn/index.html)
+将`QDjob.exe`程序放入计划任务中，并设置计划任务执行时间，建议设置为每天0点执行。  
+2. **`ztasker`(推荐)**  
+使用`ztasker`来配置每日执行，比任务计划程序更加稳定。点这里：[官网网址](https://www.everauto.net/cn/index.html)
 
-## 关于issue
-* 如果发现任何问题，欢迎在issue中提出来，在提issue时请将日志等级改为`DEBUG`，并在日志内容中包含你所遇到的问题。
+## 关于`issue`
+* 如果发现任何问题，欢迎在`issue`中提出来，在提`issue`时请将日志等级改为`DEBUG`，并在日志内容中包含你所遇到的问题。
 
 ## TODO
- *  添加登录功能，仍然建议使用抓包来获取cookies，能有效避免账号遇到验证码
+ *  添加登录功能，仍然建议使用抓包来获取`cookies`，能有效避免账号遇到验证码
  *  添加验证码识别功能
  *  添加更多推送服务  
  ······
