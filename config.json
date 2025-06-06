@@ -1,0 +1,31 @@
+{
+  "default_user_agent": "Mozilla/5.0 (Linux; Android 13; PDEM10 Build/TP1A.220905.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/109.0.5414.86 MQQBrowser/6.2 TBS/047601 Mobile Safari/537.36 QDJSSDK/1.0  QDNightStyle_1  QDReaderAndroid/7.9.384/1466/1000032/OPPO/QDShowNativeLoading",
+  "log_level": "INFO",
+  "log_retention_days": 7,
+  "retry_attempts": 3,
+  "users": [
+    {
+      "username": "username",
+      "cookies_file": "cookies/username.json",
+      "user_agent": "",
+      "tasks": {
+        "签到任务": true,
+        "激励碎片任务": true,
+        "额外激励任务": true,
+        "章节卡任务": true,
+        "每日抽奖任务": true
+      },
+      "push_services": [
+        {
+          "type": "feishu",
+          "webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxxxx",
+          "havesign": false
+        },
+        {
+          "type": "serverchan",
+          "sckey": "SCUxxxxxx"
+        }
+      ]
+    }
+  ]
+}
