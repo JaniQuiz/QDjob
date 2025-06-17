@@ -7,7 +7,7 @@ import random
 import re
 from urllib.parse import urlencode
 from typing import Dict, List, Optional, Any, Callable
-from enctrypt_qidian import getQDInfo, getQDSign, getSDKSign, sort_query_string
+from enctrypt_qidian import getQDInfo, getQDSign, getSDKSign, sort_query_string, getborgus
 from push import PushService, FeiShu, ServerChan
 from logger import LoggerManager
 from logger import DEFAULT_LOG_RETENTION
@@ -285,6 +285,9 @@ class QidianClient:
         
     def _make_qd_request(self, url: str, params: dict = None, data: dict = None, method: str = 'POST') -> Dict[str, Any]:
         """创建qd类型请求"""
+        # 添加随机延迟
+        time.sleep(random.uniform(1, 3))  # 随机延迟 1~3 秒
+
         ts = str(int(time.time() * 1000))
         params = params or {}
         data = data or {}
@@ -293,13 +296,15 @@ class QidianClient:
         query_string = sort_query_string(urlencode(data) if data else urlencode(params))
         QDSign = getQDSign(ts, query_string, self.version, self.qid)
         QDInfo = getQDInfo(ts, self.version, self.qid)
+        borgus = getborgus(query_string)
         
         # 更新headers
         headers = self.headers_qd.copy()
         headers.update({
             'tstamp': ts,
             'QDInfo': QDInfo,
-            'QDSign': QDSign
+            'QDSign': QDSign,
+            'borgus': borgus
         })
 
         # 更新 cookies
@@ -315,6 +320,9 @@ class QidianClient:
 
     def _make_sdk_request(self, url: str, params: dict = None, data: dict = None, method: str = 'POST') -> Dict[str, Any]:
         """创建sdk类型请求"""
+        # 添加随机延迟
+        time.sleep(random.uniform(1, 3))  # 随机延迟 1~3 秒
+
         ts = str(int(time.time() * 1000))
         params = params or {}
         data = data or {}
@@ -323,12 +331,14 @@ class QidianClient:
         query_string = sort_query_string(urlencode(data) if data else urlencode(params))
         SDKSign = getSDKSign(ts, query_string, self.version, self.qid)
         QDInfo = getQDInfo(ts, self.version, self.qid)
+        borgus = getborgus(query_string)
         
         # 更新headers
         headers = self.headers_sdk.copy()
         headers.update({
             'tstamp': ts,
-            'SDKSign': SDKSign
+            'SDKSign': SDKSign,
+            'borgus': borgus
         })
 
         # 更新 cookies
@@ -358,13 +368,15 @@ class QidianClient:
         params_encrypt = sort_query_string('')
         QDSign = getQDSign(ts, params_encrypt, self.version, self.qid)
         QDInfo = getQDInfo(ts, self.version, self.qid)
+        borgus = getborgus(params_encrypt)
         
         # 设置请求头
         headers = self.headers_qd.copy()
         headers.update({
             'tstamp': ts,
             'QDInfo': QDInfo,
-            'QDSign': QDSign
+            'QDSign': QDSign,
+            'borgus': borgus
         })
 
         # 更新 cookies
