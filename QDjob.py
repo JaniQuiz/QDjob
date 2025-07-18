@@ -7,7 +7,7 @@ import random
 import re
 from urllib.parse import urlencode
 from typing import Dict, List, Optional, Any, Callable
-from enctrypt_qidian import getQDInfo, getQDSign, getSDKSign, sort_query_string, getborgus
+from enctrypt_qidian import getQDInfo, getQDSign, getSDKSign, sort_query_string, getborgus, getsecuritydata
 from push import PushService, FeiShu, ServerChan
 from logger import LoggerManager
 from logger import DEFAULT_LOG_RETENTION
@@ -219,7 +219,7 @@ class QidianClient:
         self.config = config
         self.session = requests.Session()
         self._init_headers()
-        self._init_versions()
+        # self.init_versions()
     
     def _init_headers(self) -> None:
         """初始化请求头"""
@@ -250,11 +250,26 @@ class QidianClient:
             'Accept-Encoding': 'gzip'
         }
     
-    def _init_versions(self) -> None:
-        """初始化版本信息"""
-        match = re.search(r'QDReaderAndroid/(\d+\.\d+\.\d+)/', self.config.user_agent)
-        self.version = match.group(1) if match else "7.9.360"
+    def init(self) -> bool:
+        """初始化信息"""
+        match = re.search(r'Android (\d+); ([^;]+) Build/.*?QDReaderAndroid/(\d+\.\d+\.\d+)/(\d+)/(\d+)/([^/]+)/', self.config.user_agent)
+        if not match or any(not match.group(i) for i in range(1, 7)):
+            logger.error('无法从User-Agent中正确获取信息，请检查User-Agent是否正确')
+            return False
+        self.Android_ver = match.group(1)  # Android版本
+        self.PhoneName = match.group(2)    # 手机品牌
+        self.version = match.group(3)      # 起点版本
+        self.vernum = match.group(4)       # 版本号
+        self.veruid = match.group(5)       # 设备唯一标识
+        self.PhoneBrand = match.group(6)   # 手机品牌，暂时用不上
+        
         self.qid = self.config.cookies.get('qid', '')
+        self.QDInfo = self.config.cookies.get('QDInfo', '')
+        self.security_data = getsecuritydata(self.QDInfo)
+        if(not self.security_data):
+            logger.error('获取设备安全数据失败，检查cookie中的QDInfo参数是否正确')
+            return False
+        return True
     
     def _handle_response(self, response: requests.Response, 
                         error_msg: str = "请求失败") -> Dict[str, Any]:
@@ -295,7 +310,7 @@ class QidianClient:
         # 生成加密参数
         query_string = sort_query_string(urlencode(data) if data else urlencode(params))
         QDSign = getQDSign(ts, query_string, self.version, self.qid)
-        QDInfo = getQDInfo(ts, self.version, self.qid)
+        QDInfo = getQDInfo(ts, self.version, self.qid, self.PhoneName, self.vernum, self.veruid, self.Android_ver, self.security_data)
         borgus = getborgus(query_string)
         
         # 更新headers
@@ -330,7 +345,7 @@ class QidianClient:
         # 生成加密参数
         query_string = sort_query_string(urlencode(data) if data else urlencode(params))
         SDKSign = getSDKSign(ts, query_string, self.version, self.qid)
-        QDInfo = getQDInfo(ts, self.version, self.qid)
+        QDInfo = getQDInfo(ts, self.version, self.qid, self.PhoneName, self.vernum, self.veruid, self.Android_ver, self.security_data)
         borgus = getborgus(query_string)
         
         # 更新headers
@@ -367,7 +382,7 @@ class QidianClient:
         params = {}
         params_encrypt = sort_query_string('')
         QDSign = getQDSign(ts, params_encrypt, self.version, self.qid)
-        QDInfo = getQDInfo(ts, self.version, self.qid)
+        QDInfo = getQDInfo(ts, self.version, self.qid, self.PhoneName, self.vernum, self.veruid, self.Android_ver, self.security_data)
         borgus = getborgus(params_encrypt)
         
         # 设置请求头
@@ -782,6 +797,9 @@ class MainApp:
             try:
                 # 初始化客户端
                 client = QidianClient(user)
+                if not client.init():
+                    logger.error(f"用户: {user.username} 初始化失败")
+                    continue
                 
                 # 检查登录状态
                 nickname = client.check_login()
