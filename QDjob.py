@@ -7,7 +7,7 @@ import random
 import re
 from urllib.parse import urlencode
 from typing import Dict, List, Optional, Any, Callable
-from enctrypt_qidian import getQDInfo, getQDSign, getSDKSign, sort_query_string, getborgus, getsecuritydata
+from enctrypt_qidian import getQDInfo, getQDSign, getSDKSign, sort_query_string, getborgus, getsecuritydata, getresolution
 from push import PushService, FeiShu, ServerChan
 from logger import LoggerManager
 from logger import DEFAULT_LOG_RETENTION
@@ -230,7 +230,9 @@ class QidianClient:
             'helios': '1',
             'User-Agent': self.config.user_agent,
             'SDKSign': '',
+            'borgus': '',
             'tstamp': '',
+            'Origin': 'https://h5.if.qidian.com',
             'X-Requested-With': 'com.qidian.QDReader',
             'Sec-Fetch-Site': 'same-origin',
             'Sec-Fetch-Mode': 'cors',
@@ -265,6 +267,7 @@ class QidianClient:
         
         self.qid = self.config.cookies.get('qid', '')
         self.QDInfo = self.config.cookies.get('QDInfo', '')
+        self.resolution = getresolution(self.QDInfo)
         self.security_data = getsecuritydata(self.QDInfo)
         if(not self.security_data):
             logger.error('获取设备安全数据失败，检查cookie中的QDInfo参数是否正确')
@@ -310,7 +313,7 @@ class QidianClient:
         # 生成加密参数
         query_string = sort_query_string(urlencode(data) if data else urlencode(params))
         QDSign = getQDSign(ts, query_string, self.version, self.qid)
-        QDInfo = getQDInfo(ts, self.version, self.qid, self.PhoneName, self.vernum, self.veruid, self.Android_ver, self.security_data)
+        QDInfo = getQDInfo(ts, self.version, self.qid, self.PhoneName, self.vernum, self.veruid, self.Android_ver, self.resolution, self.security_data)
         borgus = getborgus(query_string)
         
         # 更新headers
@@ -345,7 +348,7 @@ class QidianClient:
         # 生成加密参数
         query_string = sort_query_string(urlencode(data) if data else urlencode(params))
         SDKSign = getSDKSign(ts, query_string, self.version, self.qid)
-        QDInfo = getQDInfo(ts, self.version, self.qid, self.PhoneName, self.vernum, self.veruid, self.Android_ver, self.security_data)
+        QDInfo = getQDInfo(ts, self.version, self.qid, self.PhoneName, self.vernum, self.veruid, self.Android_ver, self.resolution, self.security_data)
         borgus = getborgus(query_string)
         
         # 更新headers
@@ -382,7 +385,7 @@ class QidianClient:
         params = {}
         params_encrypt = sort_query_string('')
         QDSign = getQDSign(ts, params_encrypt, self.version, self.qid)
-        QDInfo = getQDInfo(ts, self.version, self.qid, self.PhoneName, self.vernum, self.veruid, self.Android_ver, self.security_data)
+        QDInfo = getQDInfo(ts, self.version, self.qid, self.PhoneName, self.vernum, self.veruid, self.Android_ver, self.resolution, self.security_data)
         borgus = getborgus(params_encrypt)
         
         # 设置请求头
@@ -517,26 +520,6 @@ class QidianClient:
             
         except Exception as e:
             logger.error(f"激励任务异常: {e}")
-            return {'status': 'error', 'error': str(e)}
-    def advjob_ex(self) -> dict:
-        """执行额外激励碎片任务"""
-        try:
-            result = self.get_adv_job()
-            task_result = self.do_adv_job("811164643405529088")
-            
-            if task_result.get('status') == 'success':
-                reward_list = result.get('Data', {}).get('RewardList', [])
-                if not reward_list:
-                    logger.info("额外激励碎片任务完成")
-                    return {'status': 'success'}
-                    
-                logger.error("额外激励碎片任务未完成")
-                return {'status': 'failed', 'code': 10086}
-                
-            return task_result  # 返回原始结果
-                
-        except Exception as e:
-            logger.error(f"额外激励任务异常: {e}")
             return {'status': 'error', 'error': str(e)}
 
     def exadvjob(self) -> dict:
@@ -726,7 +709,6 @@ class TaskProcessor:
         tasks = [
             ('签到任务', self.client.qdsign),
             ('激励碎片任务', self.client.advjob),
-            ('额外激励任务', self.client.advjob_ex),
             ('章节卡任务', self.client.exadvjob),
             ('每日抽奖任务', self.client.lottery)
             # ('其他任务', self.other_task_func),
