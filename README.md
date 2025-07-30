@@ -86,7 +86,12 @@
     ├── QDjob.exe
     └── QDjob_editor.exe
    ```
-5. **运行`QDjob.exe`程序或在`QDjob_editor.exe`中点击执行任务**  
+5. **运行`QDjob.exe`程序或在`QDjob_editor.exe`中点击执行任务**
+6. **执行程序**
+   * `windows`: 执行`QDjob.exe`或者在`QDjob_editor.exe`中点击执行任务
+   * `linux`:
+     * 打开程序的属性设置，设置`QDjob`和`QDjob_editor`程序可执行。
+     * 执行`QDjob`或者在`QDjob_editor`中点击执行任务。
 
 ### 配置日常运行  
 请在完成了上面的配置后，按照以下步骤实现每日自动托管运行。
