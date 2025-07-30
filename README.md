@@ -90,7 +90,7 @@
 6. **执行程序**
    * `windows`: 执行`QDjob.exe`或者在`QDjob_editor.exe`中点击执行任务
    * `linux`:
-     * 打开程序的属性设置，设置`QDjob`和`QDjob_editor`程序可执行。
+     * 分别打开两个程序的属性设置，设置`QDjob`和`QDjob_editor`程序可执行。
      * 执行`QDjob`或者在`QDjob_editor`中点击执行任务。
 
 ### 配置日常运行  
