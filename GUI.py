@@ -351,7 +351,7 @@ class ConfigEditor:
         task_frame.grid(row=2, column=0, columnspan=3, sticky="ew", pady=10)
         
         task_vars = {}
-        tasks = ["签到任务", "激励碎片任务", "额外激励任务", "章节卡任务", "每日抽奖任务"]
+        tasks = ["签到任务", "激励碎片任务", "章节卡任务", "每日抽奖任务"]
         for i, task in enumerate(tasks):
             var = tk.BooleanVar(value=True)
             ttk.Checkbutton(task_frame, text=task, variable=var).grid(
@@ -782,7 +782,7 @@ class ConfigEditor:
         task_frame.grid(row=2, column=0, columnspan=3, sticky="ew", pady=10)
 
         task_vars = {}
-        tasks = ["签到任务", "激励碎片任务", "额外激励任务", "章节卡任务", "每日抽奖任务"]
+        tasks = ["签到任务", "激励碎片任务", "章节卡任务", "每日抽奖任务"]
         for i, task in enumerate(tasks):
             var = tk.BooleanVar(value=user["tasks"].get(task, True))
             ttk.Checkbutton(task_frame, text=task, variable=var).grid(
@@ -1379,14 +1379,19 @@ class ConfigEditor:
 
     def execute_task(self):
         """执行任务按钮点击事件"""
-        if os.path.exists("QDjob.exe"):
+        import sys, os
+
+        # 获取当前可执行文件所在目录
+        base_path = os.path.dirname(sys.argv[0])
+        qdjob_path = os.path.join(base_path, "QDjob.exe")
+
+        if os.path.exists(qdjob_path):
             import subprocess
-            # 使用Popen启动新进程并分离
-            subprocess.Popen(["QDjob.exe"])
+            subprocess.Popen([qdjob_path])
         else:
             error_message = (
-                "❌未找到QDjob.exe文件\n\n"
-                "⚠️请将QDjob.exe与本程序放置于同一个文件夹下\n\n"
+                "❌未找到QDjob文件\n\n"
+                "⚠️请将QDjob与本程序放置于同一个文件夹下\n\n"
                 "⚠️请勿修改文件名"
             )
             messagebox.showerror("执行失败", error_message)
