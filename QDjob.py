@@ -89,12 +89,17 @@ class ConfigManager:
                 push_services.append(push_service)
                 
             # 创建用户配置对象
+            user_agent = user_data.get('user_agent', '') or self.config.get('default_user_agent')
+            logger.info(f"用户[{user_data['username']}] 使用的User-Agent: {user_agent} \n"
+                        f"(用户配置: {user_data.get('user_agent', '未设置')}, \n"
+                        f"默认: {self.config.get('default_user_agent')})\n")
+
             user = UserConfig(
                 username=user_data['username'],
                 cookies=cookies,
                 tasks=user_data.get('tasks', {}),
-                user_agent=user_data.get('user_agent', self.config.get('default_user_agent')),
-                push_services=push_services  # 添加缺失的参数
+                user_agent=user_agent,
+                push_services=push_services
             )
             users.append(user)
             
