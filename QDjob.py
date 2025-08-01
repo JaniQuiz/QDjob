@@ -87,12 +87,12 @@ class ConfigManager:
                     continue
 
                 push_services.append(push_service)
-                
+            
             # 创建用户配置对象
             user_agent = user_data.get('user_agent', '') or self.config.get('default_user_agent')
-            logger.info(f"用户[{user_data['username']}] 使用的User-Agent: {user_agent} \n"
-                        f"(用户配置: {user_data.get('user_agent', '未设置')}, \n"
-                        f"默认: {self.config.get('default_user_agent')})\n")
+            logger.info(f"用户[{user_data['username']}] 使用的User-Agent: {user_agent} "
+                        f"(用户配置: {user_data.get('user_agent', '未设置')}, "
+                        f"默认: {self.config.get('default_user_agent')})")
 
             user = UserConfig(
                 username=user_data['username'],
@@ -259,24 +259,33 @@ class QidianClient:
     
     def init(self) -> bool:
         """初始化信息"""
+        
         match = re.search(r'Android (\d+); ([^;]+) Build/.*?QDReaderAndroid/(\d+\.\d+\.\d+)/(\d+)/(\d+)/([^/]+)/', self.config.user_agent)
         if not match or any(not match.group(i) for i in range(1, 7)):
             logger.error('无法从User-Agent中正确获取信息，请检查User-Agent是否正确')
             return False
+        logger.debug("从UA中获取到信息：\n")
         self.Android_ver = match.group(1)  # Android版本
+        logger.debug(f"Android版本：{self.Android_ver}")
         self.PhoneName = match.group(2)    # 手机品牌
+        logger.debug(f"手机品牌：{self.PhoneName}")
         self.version = match.group(3)      # 起点版本
+        logger.debug(f"起点版本：{self.version}")
         self.vernum = match.group(4)       # 版本号
+        logger.debug(f"版本号：{self.vernum}")
         self.veruid = match.group(5)       # 设备唯一标识
+        logger.debug(f"设备唯一标识：{self.veruid}")
         self.PhoneBrand = match.group(6)   # 手机品牌，暂时用不上
+        logger.debug(f"手机品牌：{self.PhoneBrand}")
         
         self.qid = self.config.cookies.get('qid', '')
         self.QDInfo = self.config.cookies.get('QDInfo', '')
+        
         self.resolution = getresolution(self.QDInfo)
+        logger.debug(f"分辨率：{self.resolution}")
         self.security_data = getsecuritydata(self.QDInfo)
-        if(not self.security_data):
-            logger.error('获取设备安全数据失败，检查cookie中的QDInfo参数是否正确')
-            return False
+        logger.debug(f"设备安全数据：{self.security_data}")
+        
         return True
     
     def _handle_response(self, response: requests.Response, 
@@ -318,7 +327,7 @@ class QidianClient:
         # 生成加密参数
         query_string = sort_query_string(urlencode(data) if data else urlencode(params))
         QDSign = getQDSign(ts, query_string, self.version, self.qid)
-        QDInfo = getQDInfo(ts, self.version, self.qid, self.PhoneName, self.vernum, self.veruid, self.Android_ver, self.resolution, self.security_data)
+        QDInfo = getQDInfo(ts, self.QDInfo)
         borgus = getborgus(query_string)
         
         # 更新headers
@@ -353,7 +362,7 @@ class QidianClient:
         # 生成加密参数
         query_string = sort_query_string(urlencode(data) if data else urlencode(params))
         SDKSign = getSDKSign(ts, query_string, self.version, self.qid)
-        QDInfo = getQDInfo(ts, self.version, self.qid, self.PhoneName, self.vernum, self.veruid, self.Android_ver, self.resolution, self.security_data)
+        QDInfo = getQDInfo(ts, self.QDInfo)
         borgus = getborgus(query_string)
         
         # 更新headers
@@ -390,7 +399,7 @@ class QidianClient:
         params = {}
         params_encrypt = sort_query_string('')
         QDSign = getQDSign(ts, params_encrypt, self.version, self.qid)
-        QDInfo = getQDInfo(ts, self.version, self.qid, self.PhoneName, self.vernum, self.veruid, self.Android_ver, self.resolution, self.security_data)
+        QDInfo = getQDInfo(ts, self.QDInfo)
         borgus = getborgus(params_encrypt)
         
         # 设置请求头
