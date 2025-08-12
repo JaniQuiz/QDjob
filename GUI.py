@@ -415,7 +415,7 @@ class ConfigEditor:
             # 类型选择
             ttk.Label(push_form, text="类型:").grid(row=0, column=0, sticky="w")
             service_type = tk.StringVar()
-            ttk.Combobox(push_form, textvariable=service_type,values=["feishu", "serverchan"],
+            ttk.Combobox(push_form, textvariable=service_type,values=["feishu", "serverchan", "qiwei"],
                         state="readonly",width=15, font=self.default_font).grid(row=0, column=1, sticky="w")
 
             # 飞书配置区域
@@ -442,6 +442,20 @@ class ConfigEditor:
             secret_frame.grid(row=2, column=0, columnspan=2, sticky="ew")
             secret_frame.grid_columnconfigure(1, weight=1)  # 允许Secret输入框扩展
             secret_frame.grid_remove()
+            
+            # qiwei行
+            qiwei_frame = ttk.Frame(feishu_frame)
+            ttk.Label(qiwei_frame, text="Webhook URL:").grid(row=0, column=0, sticky="w")
+            qiwei_url_entry = ttk.Entry(qiwei_frame)
+            qiwei_url_entry.grid(row=0, column=1, sticky="ew", padx=5)
+            
+            ttk.Label(qiwei_frame, text="Mentioned UserId:").grid(row=1, column=0, sticky="w")
+            qiwei_userid_entry = ttk.Entry(qiwei_frame)
+            qiwei_userid_entry.grid(row=1, column=1, sticky="ew", padx=5)
+            
+            qiwei_frame.grid(row=2, column=0, columnspan=2, sticky="ew")
+            qiwei_frame.grid_columnconfigure(1, weight=1)
+            qiwei_frame.grid_remove()
 
             # ServerChan配置区域
             server_frame = ttk.Frame(push_form)
@@ -454,10 +468,17 @@ class ConfigEditor:
             def update_config_fields(*args):
                 if service_type.get() == "feishu":
                     server_frame.grid_remove()
+                    qiwei_frame.grid_remove()
                     feishu_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
-                else:
+                elif service_type.get() == "serverchan":
                     feishu_frame.grid_remove()
+                    qiwei_frame.grid_remove()
                     server_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+                elif service_type.get() == "qiwei":
+                    feishu_frame.grid_remove()
+                    server_frame.grid_remove()
+                    qiwei_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+                
             
             service_type.trace_add("write", update_config_fields)
             update_config_fields()  # 初始化显示
@@ -485,8 +506,8 @@ class ConfigEditor:
                             messagebox.showerror("错误", "签名模式必须填写密钥")
                             return
                         service["secret"] = secret
-                        
-                else:  # serverchan
+
+                elif service_type.get() == "serverchan":  # serverchan
                     sckey = sckey_entry.get()
                     if not sckey:
                         messagebox.showerror("错误", "ServerChan SCKEY不能为空")
@@ -496,6 +517,19 @@ class ConfigEditor:
                         "type": "serverchan",
                         "sckey": sckey,
                         "title": f"Server酱 - {sckey[-20:]}"
+                    }
+                elif service_type.get() == "qiwei":  # qiwei
+                    qiwei_url = qiwei_url_entry.get()
+                    qiwei_userid = qiwei_userid_entry.get()
+                    if not qiwei_url or not qiwei_userid:
+                        messagebox.showerror("错误", "企微推送的Webhook URL不能为空")
+                        return
+                    
+                    service = {
+                        "type": "qiwei",
+                        "webhook_url": qiwei_url,
+                        "userid": qiwei_userid,
+                        "title": f"企微 - {qiwei_userid[-20:]}"
                     }
                     
                 push_services.append(service)
@@ -594,14 +628,32 @@ class ConfigEditor:
             sckey_entry = ttk.Entry(server_frame)
             sckey_entry.insert(0, service.get("sckey", ""))
             sckey_entry.grid(row=0, column=1, sticky="ew")
+            
+            # qiwei配置区域
+            qiwei_frame = ttk.Frame(push_form)
+            ttk.Label(qiwei_frame, text="Webhook URL:").grid(row=0, column=0, sticky="w")
+            qiwei_url_entry = ttk.Entry(qiwei_frame)
+            qiwei_url_entry.insert(0, service.get("webhook_url", ""))
+            qiwei_url_entry.grid(row=0, column=1, sticky="ew")
 
+            ttk.Label(qiwei_frame, text="UserId:").grid(row=1, column=0, sticky="w")
+            qiwei_userid_entry = ttk.Entry(qiwei_frame)
+            qiwei_userid_entry.insert(0, service.get("userid", ""))
+            qiwei_userid_entry.grid(row=1, column=1, sticky="ew")
+            
             # 根据类型显示对应配置
             if service["type"] == "feishu":
                 server_frame.grid_remove()
+                qiwei_frame.grid_remove()
                 feishu_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
-            else:
+            elif service["type"] == "serverchan":
                 feishu_frame.grid_remove()
+                qiwei_frame.grid_remove()
                 server_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+            elif service["type"] == "qiwei":
+                feishu_frame.grid_remove()
+                server_frame.grid_remove()
+                qiwei_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
 
             def update_push_service():
                 """更新推送服务配置"""
@@ -626,7 +678,8 @@ class ConfigEditor:
                         service.pop("secret", None)
                         
                     service["title"] = f"飞书推送 - {url[-20:]}"
-                else:
+                    
+                elif service["type"] == "serverchan":
                     sckey = sckey_entry.get()
                     if not sckey:
                         messagebox.showerror("错误", "ServerChan SCKEY不能为空")
@@ -635,6 +688,19 @@ class ConfigEditor:
                     service.update({
                         "sckey": sckey,
                         "title": f"Server酱 - {sckey[-20:]}"
+                    })
+                elif service["type"] == "qiwei":
+                    qiwei_url = qiwei_url_entry.get()
+                    qiwei_userid = qiwei_userid_entry.get()
+                    
+                    if not qiwei_url:
+                        messagebox.showerror("错误", "企微推送的Webhook URL不能为空")
+                        return
+                    
+                    service.update({
+                        "webhook_url": qiwei_url,
+                        "userid": qiwei_userid,
+                        "title": f"企微 - {qiwei_userid[-20:]}"
                     })
                     
                 # 更新列表显示
