@@ -10,6 +10,43 @@ class ConfigDetailView(ft.Column):
         self.scroll = ft.ScrollMode.HIDDEN
         self.user = None
 
+    def on_cookie_tap(self, key, text):
+        bs = ft.BottomSheet(
+            ft.Container(
+                ft.Column(
+                    [
+                        ft.Row(
+                            [
+                                ft.Text(
+                                    key.value,
+                                    theme_style=ft.TextThemeStyle.HEADLINE_SMALL,
+                                ),
+                                ft.IconButton(
+                                    ft.Icons.COPY,
+                                    on_click=lambda _: app.page.set_clipboard(text),
+                                    icon_size=12,
+                                    style=ft.ButtonStyle(
+                                        padding=ft.padding.all(0),
+                                    )
+                                ),
+                            ],
+                            alignment=ft.MainAxisAlignment.CENTER,
+                        ),
+                        ft.Text(text, no_wrap=False),
+                        ft.IconButton(
+                            ft.Icons.CLOSE, on_click=lambda _: app.page.close(bs)
+                        ),
+                    ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    tight=True,
+                ),
+                padding=50,
+            ),
+            open=False,
+        )
+
+        app.page.open(bs)
+
     def load_config(self, user: ConfigUsers):
         tasks = []
         for key, value in user.config["tasks"].items():
@@ -36,7 +73,19 @@ class ConfigDetailView(ft.Column):
                 ft.DataRow(
                     cells=[
                         ft.DataCell(ft.Text(key.value)),
-                        ft.DataCell(ft.Text(value if value else " - ")),
+                        ft.DataCell(
+                            ft.Container(
+                                content=ft.Text(
+                                    value if value else " - ",
+                                    no_wrap=False,  # 允许换行
+                                    max_lines=2,  # 最多显示3行
+                                    overflow=ft.TextOverflow.ELLIPSIS,
+                                ),
+                                width=150,  # 正确：Container 可以设置宽度
+                                expand=True,  # 横向拉满
+                            ),
+                            on_tap=lambda e, v=value, k=key: self.on_cookie_tap(k, v),
+                        ),
                         ft.DataCell(ft.Text(desc.get(key, " - "))),
                     ],
                 )
@@ -119,6 +168,5 @@ class ConfigDetailView(ft.Column):
         self.user = user
         self.load_config(user)
         app.appBar.change_bar(AppBarStatus.CONFIG_DETAIL)
-    
     def edit(self):
         app.view.switch("ConfigEditView", user=self.user)
