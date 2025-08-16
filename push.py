@@ -159,7 +159,7 @@ class Telegram(PushService):
         pass
 
 
-class QiweiChan(PushService):
+class Qiwei(PushService):
     """Qiwei推送"""
 
     def __init__(self, webhook_url: str, user_id: str):

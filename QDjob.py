@@ -12,9 +12,11 @@ from push import PushService, FeiShu, ServerChan
 from logger import LoggerManager
 from logger import DEFAULT_LOG_RETENTION
 
+FLET_APP_STORAGE_DATA = os.getenv("FLET_APP_STORAGE_DATA")
+
 # 配置常量
-CONFIG_FILE = 'config.json'
-COOKIES_DIR = 'cookies'
+CONFIG_FILE = os.path.join(FLET_APP_STORAGE_DATA, "config.json")
+COOKIES_DIR = os.path.join(FLET_APP_STORAGE_DATA, "cookies")
 DEFAULT_USER_AGENT = "Mozilla/5.0 (Linux; Android 13; PDEM10 Build/TP1A.220905.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/109.0.5414.86 MQQBrowser/6.2 TBS/047601 Mobile Safari/537.36 QDJSSDK/1.0  QDNightStyle_1  QDReaderAndroid/7.9.384/1466/1000032/OPPO/QDShowNativeLoading"
 logger = LoggerManager().setup_basic_logger()
 

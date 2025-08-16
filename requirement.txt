@@ -1,3 +1,4 @@
-requests>=2.28.1
-pycryptodome>=3.10.1
+flet==0.28.3
+requests==2.26.0
+pycryptodome==3.21.0
 tkinter
