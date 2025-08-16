@@ -153,7 +153,7 @@ class ConfigPanel(ft.Column):
                     content=ft.FilledButton(
                         "添加新配置",
                         icon=ft.Icons.ADD,
-                        on_click=lambda e: print("添加新配置"),
+                        on_click=lambda e: app.mainView.addConfig(),
                     ),
                     expand=True,
                     alignment=ft.alignment.center,
