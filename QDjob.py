@@ -2,13 +2,13 @@
 import os
 import json
 import requests
-import time
+import time, sys
 import random
 import re
 from urllib.parse import urlencode
 from typing import Dict, List, Optional, Any, Callable
-from enctrypt_qidian import getQDInfo, getQDSign, getSDKSign, sort_query_string, getborgus, getsecuritydata, getresolution
-from push import PushService, FeiShu, ServerChan
+from enctrypt_qidian import getQDInfo, getQDSign, getSDKSign, sort_query_string, getborgus
+from push import PushService, FeiShu, ServerChan, QiweiPush
 from logger import LoggerManager
 from logger import DEFAULT_LOG_RETENTION
 
@@ -27,12 +27,13 @@ class QidianError(Exception):
 class UserConfig:
     """用户配置"""
     def __init__(self, username: str, cookies: Dict[str, str], 
-                 tasks: Dict[str, bool], user_agent: str, 
+                 tasks: Dict[str, bool], user_agent: str, ibex: str,
                  push_services: List[PushService]):
         self.username = username
         self.cookies = cookies
         self.tasks = tasks
         self.user_agent = user_agent
+        self.ibex = ibex
         self.push_services = push_services
 
 class ConfigManager:
@@ -82,6 +83,8 @@ class ConfigManager:
                     push_service = FeiShu(**config_without_type)
                 elif push_type == 'serverchan':
                     push_service = ServerChan(**config_without_type)
+                elif push_type == 'qiwei':
+                    push_service = QiweiPush(**config_without_type)
                 else:
                     logger.warning(f"[推送配置] 用户[{user_data['username']}] 未知的推送类型: {push_type}")
                     continue
@@ -94,11 +97,14 @@ class ConfigManager:
                         f"(用户配置: {user_data.get('user_agent', '未设置')}, "
                         f"默认: {self.config.get('default_user_agent')})")
 
+            ibex = user_data.get('ibex', '')
+
             user = UserConfig(
                 username=user_data['username'],
                 cookies=cookies,
                 tasks=user_data.get('tasks', {}),
                 user_agent=user_agent,
+                ibex=ibex,
                 push_services=push_services
             )
             users.append(user)
@@ -155,6 +161,11 @@ class ConfigManager:
                 self.config['default_user_agent'] = DEFAULT_USER_AGENT
         else:
             self.config['default_user_agent'] = DEFAULT_USER_AGENT
+
+        # 校验ibex
+        if "ibex" in self.config:
+            if not isinstance(self.config['ibex'], str):
+                logger.warning("ibex配置错误：不是字符串类型。请检查输入")
         
         # 校验用户配置
         if 'users' in self.config:
@@ -180,7 +191,7 @@ class ConfigManager:
             logger.error(f"用户[{user_data['username']}] 推送服务配置必须为列表类型")
             return False
 
-        valid_push_types = ['feishu', 'serverchan']
+        valid_push_types = ['feishu', 'serverchan', 'qiwei']
         for push_config in push_services:
             if not isinstance(push_config, dict):
                 logger.warning(f"用户[{user_data['username']}] 推送配置项不是字典类型")
@@ -215,6 +226,14 @@ class ConfigManager:
                 if not isinstance(push_config.get('sckey', ''), str):
                     logger.warning(f"[配置错误] 用户[{user_data['username']}] Server酱推送 sckey 必须为字符串类型")
                     return False
+            
+            elif push_type == 'qiwei':
+                if not push_config.get('webhook_url'):
+                    logger.warning(f"[配置错误] 用户[{user_data['username']}] Qiwei推送缺少必要字段: webhook_url")
+                    return False
+                if not isinstance(push_config.get('webhook_url', ''), str):
+                    logger.warning(f"[配置错误] 用户[{user_data['username']}] Qiwei推送 webhook_url 必须为字符串类型")
+                    return False
 
         return True
 
@@ -235,6 +254,7 @@ class QidianClient:
             'helios': '1',
             'User-Agent': self.config.user_agent,
             'SDKSign': '',
+            'ibex': '',
             'borgus': '',
             'tstamp': '',
             'Origin': 'https://h5.if.qidian.com',
@@ -259,33 +279,21 @@ class QidianClient:
     
     def init(self) -> bool:
         """初始化信息"""
-        
-        match = re.search(r'Android (\d+); ([^;]+) Build/.*?QDReaderAndroid/(\d+\.\d+\.\d+)/(\d+)/(\d+)/([^/]+)/', self.config.user_agent)
-        if not match or any(not match.group(i) for i in range(1, 7)):
-            logger.error('无法从User-Agent中正确获取信息，请检查User-Agent是否正确')
+        match = re.search(r'QDReaderAndroid/(\d+\.\d+\.\d+)/', self.config.user_agent)
+        self.version = match.group(1)
+        if not self.version: 
+            logger.error('无法获取版本号，请检查UA')
             return False
-        logger.debug("从UA中获取到信息：\n")
-        self.Android_ver = match.group(1)  # Android版本
-        logger.debug(f"Android版本：{self.Android_ver}")
-        self.PhoneName = match.group(2)    # 手机品牌
-        logger.debug(f"手机品牌：{self.PhoneName}")
-        self.version = match.group(3)      # 起点版本
-        logger.debug(f"起点版本：{self.version}")
-        self.vernum = match.group(4)       # 版本号
-        logger.debug(f"版本号：{self.vernum}")
-        self.veruid = match.group(5)       # 设备唯一标识
-        logger.debug(f"设备唯一标识：{self.veruid}")
-        self.PhoneBrand = match.group(6)   # 手机品牌，暂时用不上
-        logger.debug(f"手机品牌：{self.PhoneBrand}")
+        logger.debug(f'当前UA版本：{self.version}')
+        
+        self.ibex = self.config.ibex
+        logger.debug(f'ibex：{self.ibex}')
+        if not self.ibex:
+            logger.warning("ibex未配置，可能会导致验证码问题")
         
         self.qid = self.config.cookies.get('qid', '')
+        logger.debug(f'qid：{self.qid}')
         self.QDInfo = self.config.cookies.get('QDInfo', '')
-        
-        self.resolution = getresolution(self.QDInfo)
-        logger.debug(f"分辨率：{self.resolution}")
-        self.security_data = getsecuritydata(self.QDInfo)
-        logger.debug(f"设备安全数据：{self.security_data}")
-        
         return True
     
     def _handle_response(self, response: requests.Response, 
@@ -370,6 +378,7 @@ class QidianClient:
         headers.update({
             'tstamp': ts,
             'SDKSign': SDKSign,
+            'ibex': self.ibex,
             'borgus': borgus
         })
 

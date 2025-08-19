@@ -34,6 +34,8 @@ class ConfigEditor:
         # 初始化配置数据
         self.config_data = self.load_config()
         self.users_data = self.config_data.get("users", [])
+        for user in self.users_data:
+            user.setdefault("ibex", "")
         
         # 创建主界面
         self.create_ui()
@@ -319,7 +321,7 @@ class ConfigEditor:
         
         dialog = tk.Toplevel(self.root)
         dialog.title("添加用户")
-        dialog.geometry("800x800")
+        dialog.geometry("800x830")
         dialog.transient(self.root)  # 新增：设置为临时窗口
         dialog.grab_set()  # 新增：模态对话框
         
@@ -345,10 +347,18 @@ class ConfigEditor:
             row=1, column=1, sticky="ew", padx=5)
         ttk.Label(form_frame, text="* 不填则使用默认User Agent", 
                 style="Help.TLabel").grid(row=1, column=2, sticky="w")
+        
+        # ====ibex输入====
+        ttk.Label(form_frame, text="ibex:").grid(row=2, column=0, sticky="w")
+        ibex_var = tk.StringVar()
+        ttk.Entry(form_frame, textvariable=ibex_var, style="Custom.TEntry").grid(
+            row=2, column=1, sticky="ew", padx=5)
+        ttk.Label(form_frame, text="* 抓包获取ibex，可避免验证码问题", 
+                style="Help.TLabel").grid(row=2, column=2, sticky="w")
 
         # ====任务配置====
         task_frame = ttk.LabelFrame(form_frame, text="默认任务配置")
-        task_frame.grid(row=2, column=0, columnspan=3, sticky="ew", pady=10)
+        task_frame.grid(row=3, column=0, columnspan=3, sticky="ew", pady=10)
         
         task_vars = {}
         tasks = ["签到任务", "激励碎片任务", "章节卡任务", "每日抽奖任务"]
@@ -360,7 +370,7 @@ class ConfigEditor:
 
         # ====推送服务配置====
         push_frame = ttk.LabelFrame(form_frame, text="推送服务")
-        push_frame.grid(row=3, column=0, columnspan=3, sticky="ew", pady=10)
+        push_frame.grid(row=4, column=0, columnspan=3, sticky="ew", pady=10)
         
         # 推送服务列表
         push_columns = ("type", "title")
@@ -379,7 +389,7 @@ class ConfigEditor:
 
         # ==== Cookies 配置区域 ====
         cookies_frame = ttk.LabelFrame(form_frame, text="Cookies配置")
-        cookies_frame.grid(row=4, column=0, columnspan=3, sticky="ew", pady=10)
+        cookies_frame.grid(row=5, column=0, columnspan=3, sticky="ew", pady=10)
 
         # 插入默认Cookies模板
         default_cookies = {
@@ -415,7 +425,7 @@ class ConfigEditor:
             # 类型选择
             ttk.Label(push_form, text="类型:").grid(row=0, column=0, sticky="w")
             service_type = tk.StringVar()
-            ttk.Combobox(push_form, textvariable=service_type,values=["feishu", "serverchan"],
+            ttk.Combobox(push_form, textvariable=service_type,values=["feishu", "serverchan", "qiwei"],
                         state="readonly",width=15, font=self.default_font).grid(row=0, column=1, sticky="w")
 
             # 飞书配置区域
@@ -450,14 +460,27 @@ class ConfigEditor:
             sckey_entry.grid(row=0, column=1, sticky="ew")
             server_frame.grid_columnconfigure(1, weight=1)
 
+            # Qiwei配置区域
+            qiwei_frame = ttk.Frame(push_form)
+            ttk.Label(qiwei_frame, text="Webhook URL:").grid(row=0, column=0, sticky="w")
+            qiwei_url = ttk.Entry(qiwei_frame)
+            qiwei_url.grid(row=0, column=1, sticky="ew")
+            qiwei_frame.grid_columnconfigure(1, weight=1)
+
             # 类型切换处理
             def update_config_fields(*args):
                 if service_type.get() == "feishu":
-                    server_frame.grid_remove()
                     feishu_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
-                else:
+                    server_frame.grid_remove()
+                    qiwei_frame.grid_remove()
+                elif service_type.get() == "serverchan":
                     feishu_frame.grid_remove()
                     server_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+                    qiwei_frame.grid_remove()
+                elif service_type.get() == "qiwei":
+                    feishu_frame.grid_remove()
+                    server_frame.grid_remove()
+                    qiwei_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
             
             service_type.trace_add("write", update_config_fields)
             update_config_fields()  # 初始化显示
@@ -486,7 +509,7 @@ class ConfigEditor:
                             return
                         service["secret"] = secret
                         
-                else:  # serverchan
+                elif service_type_val == "serverchan":  # serverchan
                     sckey = sckey_entry.get()
                     if not sckey:
                         messagebox.showerror("错误", "ServerChan SCKEY不能为空")
@@ -497,6 +520,22 @@ class ConfigEditor:
                         "sckey": sckey,
                         "title": f"Server酱 - {sckey[-20:]}"
                     }
+                
+                elif service_type_val == "qiwei":
+                    url = qiwei_url.get()
+                    if not url:
+                        messagebox.showerror("错误", "QiWei Webhook URL不能为空")
+                        return
+                    
+                    service = {
+                        "type": "qiwei",
+                        "webhook_url": url,
+                        "title": f"企业微信 - {url[-20:]}"
+                    }
+                
+                else: 
+                    messagebox.showerror("错误", "未知的推送服务类型")
+                    return
                     
                 push_services.append(service)
                 push_list.insert("", "end", values=(service["type"], service["title"]))
@@ -595,13 +634,31 @@ class ConfigEditor:
             sckey_entry.insert(0, service.get("sckey", ""))
             sckey_entry.grid(row=0, column=1, sticky="ew")
 
+            # Qiwei配置区域
+            qiwei_frame = ttk.Frame(push_form)
+            ttk.Label(qiwei_frame, text="Webhook URL:").grid(row=0, column=0, sticky="w")
+            qiwei_url = ttk.Entry(qiwei_frame)
+            qiwei_url.insert(0, service.get("webhook_url", ""))
+            qiwei_url.grid(row=0, column=1, sticky="ew")
+
             # 根据类型显示对应配置
             if service["type"] == "feishu":
-                server_frame.grid_remove()
                 feishu_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
-            else:
+                server_frame.grid_remove()
+                qiwei_frame.grid_remove()
+            elif service["type"] == "serverchan":
                 feishu_frame.grid_remove()
                 server_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+                qiwei_frame.grid_remove()
+            elif service["type"] == "qiwei":
+                feishu_frame.grid_remove()
+                server_frame.grid_remove()
+                qiwei_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+            else:
+                feishu_frame.grid_remove()
+                server_frame.grid_remove()
+                qiwei_frame.grid_remove()
+                messagebox.showerror("错误", "未知推送服务类型")
 
             def update_push_service():
                 """更新推送服务配置"""
@@ -626,7 +683,7 @@ class ConfigEditor:
                         service.pop("secret", None)
                         
                     service["title"] = f"飞书推送 - {url[-20:]}"
-                else:
+                elif service["type"] == "serverchan":
                     sckey = sckey_entry.get()
                     if not sckey:
                         messagebox.showerror("错误", "ServerChan SCKEY不能为空")
@@ -636,6 +693,19 @@ class ConfigEditor:
                         "sckey": sckey,
                         "title": f"Server酱 - {sckey[-20:]}"
                     })
+                elif service["type"] == "qiwei":
+                    url = qiwei_url.get()
+                    if not url:
+                        messagebox.showerror("错误", "企微Webhook URL不能为空")
+                        return
+                    
+                    service.update({
+                        "webhook_url": url,
+                        "title": f"企微推送 - {url[-20:]}"
+                    })
+                else:
+                    messagebox.showerror("错误", "未知推送服务类型")
+                    return
                     
                 # 更新列表显示
                 item = listbox.selection()[0]
@@ -711,6 +781,7 @@ class ConfigEditor:
                 "username": username,
                 "cookies_file": f"cookies/{username}.json",
                 "user_agent": ua_var.get(),
+                "ibex": ibex_var.get(),
                 "tasks": {task: var.get() for task, var in task_vars.items()},
                 "push_services": [
                     {k: v for k, v in service.items() if k != "title"}  # 过滤 title 字段
@@ -750,7 +821,7 @@ class ConfigEditor:
 
         dialog = tk.Toplevel(self.root)
         dialog.title(f"编辑用户 - {user['username']}")
-        dialog.geometry("800x800")
+        dialog.geometry("800x830")
         dialog.transient(self.root)  # 新增：设置为临时窗口
         dialog.grab_set()  # 新增：模态对话框
 
@@ -776,10 +847,18 @@ class ConfigEditor:
             row=1, column=1, sticky="ew", padx=5)
         ttk.Label(form_frame, text="* 不填则使用默认User Agent", 
                 style="Help.TLabel").grid(row=1, column=2, sticky="w")
+        
+        # ====ibex输入====
+        ttk.Label(form_frame, text="ibex:").grid(row=2, column=0, sticky="w")
+        ibex_var = tk.StringVar(value=user.get("ibex", ""))
+        ttk.Entry(form_frame, textvariable=ibex_var, style="Custom.TEntry").grid(
+            row=2, column=1, sticky="ew", padx=5)
+        ttk.Label(form_frame, text="* 抓包获取ibex，可避免验证码问题", 
+                style="Help.TLabel").grid(row=2, column=2, sticky="w")
 
         # ====任务配置====
         task_frame = ttk.LabelFrame(form_frame, text="任务配置")
-        task_frame.grid(row=2, column=0, columnspan=3, sticky="ew", pady=10)
+        task_frame.grid(row=3, column=0, columnspan=3, sticky="ew", pady=10)
 
         task_vars = {}
         tasks = ["签到任务", "激励碎片任务", "章节卡任务", "每日抽奖任务"]
@@ -791,7 +870,7 @@ class ConfigEditor:
 
         # ====推送服务配置====
         push_frame = ttk.LabelFrame(form_frame, text="推送服务")
-        push_frame.grid(row=3, column=0, columnspan=3, sticky="ew", pady=10)
+        push_frame.grid(row=4, column=0, columnspan=3, sticky="ew", pady=10)
 
         # 推送服务列表
         push_columns = ("type", "title")
@@ -811,7 +890,7 @@ class ConfigEditor:
 
         # ==== Cookies 配置区域 ====
         cookies_frame = ttk.LabelFrame(form_frame, text="Cookies配置")
-        cookies_frame.grid(row=4, column=0, columnspan=3, sticky="ew", pady=10)
+        cookies_frame.grid(row=5, column=0, columnspan=3, sticky="ew", pady=10)
 
         # 读取现有Cookies内容
         try:
@@ -857,7 +936,7 @@ class ConfigEditor:
             # 类型选择
             ttk.Label(push_form, text="类型:").grid(row=0, column=0, sticky="w")
             service_type = tk.StringVar()
-            ttk.Combobox(push_form, textvariable=service_type,values=["feishu", "serverchan"],
+            ttk.Combobox(push_form, textvariable=service_type,values=["feishu", "serverchan", "qiwei"],
                         state="readonly",width=15, font=self.default_font).grid(row=0, column=1, sticky="w")
 
             # 飞书配置区域
@@ -891,14 +970,27 @@ class ConfigEditor:
             sckey_entry.grid(row=0, column=1, sticky="ew")
             server_frame.grid_columnconfigure(1, weight=1)
 
+            # Qiwei配置区域
+            qiwei_frame = ttk.Frame(push_form)
+            ttk.Label(qiwei_frame, text="Webhook URL:").grid(row=0, column=0, sticky="w")
+            qiwei_url = ttk.Entry(qiwei_frame)
+            qiwei_url.grid(row=0, column=1, sticky="ew")
+            qiwei_frame.grid_columnconfigure(1, weight=1)
+
             # 类型切换处理
             def update_config_fields(*args):
                 if service_type.get() == "feishu":
-                    server_frame.grid_remove()
                     feishu_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
-                else:
+                    server_frame.grid_remove()
+                    qiwei_frame.grid_remove()
+                elif service_type.get() == "serverchan":
                     feishu_frame.grid_remove()
                     server_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+                    qiwei_frame.grid_remove()
+                elif service_type.get() == "qiwei":
+                    feishu_frame.grid_remove()
+                    server_frame.grid_remove()
+                    qiwei_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
 
             service_type.trace_add("write", update_config_fields)
             update_config_fields()  # 初始化显示
@@ -926,17 +1018,32 @@ class ConfigEditor:
                             return
                         service["secret"] = secret
 
-                else:  # serverchan
+                elif service_type_val == "serverchan":  # serverchan
                     sckey = sckey_entry.get()
                     if not sckey:
                         messagebox.showerror("错误", "ServerChan SCKEY不能为空")
                         return
-
+                        
                     service = {
                         "type": "serverchan",
                         "sckey": sckey,
                         "title": f"Server酱 - {sckey[-20:]}"
                     }
+                
+                elif service_type_val == "qiwei":
+                    url = qiwei_url.get()
+                    if not url:
+                        messagebox.showerror("错误", "QiWei Webhook URL不能为空")
+                        return
+                    
+                    service = {
+                        "type": "qiwei",
+                        "webhook_url": url,
+                        "title": f"企业微信 - {url[-20:]}"
+                    }
+                else:
+                    messagebox.showerror("错误", "未知的推送服务类型")
+                    return
 
                 push_services.append(service)
                 push_list.insert("", "end", values=(service["type"], service["title"]))
@@ -1021,15 +1128,31 @@ class ConfigEditor:
             sckey_entry.grid(row=0, column=1, sticky="ew")
             server_frame.grid_columnconfigure(1, weight=1)
 
+            # Qiwei配置区域
+            qiwei_frame = ttk.Frame(push_form)
+            ttk.Label(qiwei_frame, text="Webhook URL:").grid(row=0, column=0, sticky="w")
+            qiwei_url = ttk.Entry(qiwei_frame)
+            qiwei_url.insert(0, service.get("webhook_url", ""))
+            qiwei_url.grid(row=0, column=1, sticky="ew")
+
             # 根据类型显示对应配置
             if service["type"] == "feishu":
-                server_frame.grid_remove()
                 feishu_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
-                feishu_frame.grid_columnconfigure(1, weight=1)
-            else:
+                server_frame.grid_remove()
+                qiwei_frame.grid_remove()
+            elif service["type"] == "serverchan":
                 feishu_frame.grid_remove()
                 server_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
-                server_frame.grid_columnconfigure(1, weight=1)
+                qiwei_frame.grid_remove()
+            elif service["type"] == "qiwei":
+                feishu_frame.grid_remove()
+                server_frame.grid_remove()
+                qiwei_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+            else:
+                feishu_frame.grid_remove()
+                server_frame.grid_remove()
+                qiwei_frame.grid_remove()
+                messagebox.showerror("错误", "未知推送服务类型")
 
             def update_push_service():
                 """更新推送服务配置"""
@@ -1053,15 +1176,29 @@ class ConfigEditor:
                     else:
                         service.pop("secret", None)
                     service["title"] = f"飞书推送 - {url[-20:]}"
-                else:
+                elif service["type"] == "serverchan":
                     sckey = sckey_entry.get()
                     if not sckey:
                         messagebox.showerror("错误", "ServerChan SCKEY不能为空")
                         return
+                        
                     service.update({
                         "sckey": sckey,
                         "title": f"Server酱 - {sckey[-20:]}"
                     })
+                elif service["type"] == "qiwei":
+                    url = qiwei_url.get()
+                    if not url:
+                        messagebox.showerror("错误", "企微Webhook URL不能为空")
+                        return
+                    
+                    service.update({
+                        "webhook_url": url,
+                        "title": f"企微推送 - {url[-20:]}"
+                    })
+                else: 
+                    messagebox.showerror("错误", "未知推送服务类型")
+                    return
 
                 # 更新列表显示
                 item = listbox.selection()[0]
@@ -1169,6 +1306,7 @@ class ConfigEditor:
                 "username": new_username,
                 "cookies_file": new_cookies_file,
                 "user_agent": ua_var.get(),
+                "ibex": ibex_var.get(),
                 "tasks": {task: var.get() for task, var in task_vars.items()},
                 "push_services": [
                     {k: v for k, v in service.items() if k != "title"}  # 过滤 title 字段

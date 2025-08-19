@@ -155,6 +155,43 @@ class ServerChan(PushService):
                 "service": "serverchan"
             }
         
+class QiweiPush(PushService):
+    """Qiwei推送"""
+
+    def __init__(self, webhook_url: str):
+        self.webhook_url = webhook_url
+        super().__init__()
+
+    def _validate_config(self):
+        """验证Qiwei配置"""
+        if not self.webhook_url:
+            logger.warning(f"[Qiwei配置] webhook_url 不能为空")
+
+    def send(self, title: str, content: str) -> dict:
+        """发送文本消息"""
+        try:
+            url = self.webhook_url
+            data = {
+                "msgtype": "markdown",
+                "markdown": {
+                    "content": f'## {title} \n {content}',
+                },
+            }
+
+            response = requests.post(url, json=data, timeout=10)
+            response.raise_for_status()
+            result = response.json()
+
+            success = result.get("errcode") == 0
+
+            if not success:
+                logger.debug(f"[Qiwei企业微信] 返回异常: {result}")
+
+            return {"success": success, "raw": result, "service": "qiwei"}
+
+        except Exception as e:
+            logger.error(f"[Qiwei企业微信] 发送异常: {str(e)}")
+            return {"success": False, "error": str(e), "service": "qiwei"}
 
 # 新增推送服务只需继承PushService基类
 class Telegram(PushService):

@@ -40,21 +40,33 @@
 ## 使用方法
 由于本项目核心加密参数不公开，因此请下载release中的exe文件，并按照以下步骤使用。  
 1. **下载release中的`QDjob.exe`和`QDjob_editor.exe`文件，放到同一个目录下**
+
 2. **运行`QDjob_editor.exe`，软件会自动创建配置`config.json`文件，按照下面说明配置用户，目前最大支持3个账号，如果需要无限制版本，请联系我**  
    配置文件说明：
    - `log_level`: 日志级别，可选值：`DEBUG/INFO/ERROR`，默认`INFO`
+   
    - `log_retention_days`: 日志保留天数，默认7天
+   
    - `retry_attempts`: 失败重试次数，默认3次
+   
    - `default_user_agent`: 默认用户代理，请以自己抓包获取的数据为准，其中末尾的7.9.384和1466代表起点版本
+        
         ```bash
         Mozilla/5.0 (Linux; Android 13; PDEM10 Build/TP1A.220905.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/109.0.5414.86 MQQBrowser/6.2 TBS/047601 Mobile Safari/537.36 QDJSSDK/1.0  QDNightStyle_1  QDReaderAndroid/7.9.384/1466/1000032/OPPO/QDShowNativeLoading
         ```
+        
+   - `ibex`：非必填，该参数可能是验证码相关参数，不填会导致出验证码。目前先手动抓包获取吧，后续有时间了我会逆向看看这个到底是什么。
+   
+     ​         **获取方式**：抓包获取，需要手动执行一次任务才能抓到。抓包接口：`https://h5.if.qidian.com/argus/api/v1/video/adv/finishWatch`
+   
    - `users`: 用户列表，每个用户包含以下字段
+     
      - `username`: 用户名
      - `cookies_file`: 用户`cookies`文件名，默认为`cookies/{username}.json`
      - `user_agent`: 为每个用户单独配置UA，不填则默认使用`default_user_agent`
      - `tasks`: 任务列表，选中表示执行，不选中则不执行
      - `push_services`: 推送服务列表，按需配置，如果不需要，请直接删除。其中飞书推送时，如果你配置了签名验证，请选中`是否有签名验证`，并填写`秘钥`。
+   
 3. **每个用户都需要配置`cookies`文件，也就是你的账号，目前仅支持抓包获取，后续会添加登录功能。**  
    即便后面添加了登录功能，但还是更推荐你使用抓包获取`cookies`，可以有效防止账号遇到验证码。  
    起点并没有对抓包有什么限制，使用常用的抓包软件就行，这里放上[小黄鸟(过检测版)](https://wwqe.lanzouo.com/iImXX2y6ysje) 密码:`3bt2`  
@@ -86,7 +98,9 @@
     ├── QDjob.exe
     └── QDjob_editor.exe
    ```
+   
 5. **运行`QDjob.exe`程序或在`QDjob_editor.exe`中点击执行任务**
+
 6. **执行程序**
    * `windows`: 执行`QDjob.exe`或者在`QDjob_editor.exe`中点击执行任务
    * `linux`:
