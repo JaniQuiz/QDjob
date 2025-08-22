@@ -1,5 +1,5 @@
 import logging
-import os
+import os, sys
 import logging.handlers
 
 LOG_DIR = 'logs'
@@ -9,6 +9,7 @@ DEFAULT_LOG_RETENTION = 7
 if sys.stdout.encoding != 'utf-8':
     # Windows环境下设置控制台编码
     if sys.platform == 'win32':
+        import io
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 class LoggerManager:
