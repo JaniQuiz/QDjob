@@ -1,0 +1,11 @@
+logs/
+*.log
+
+py311/
+__pycache__/
+
+.venv/
+
+*.pyd
+*.pyc
+
