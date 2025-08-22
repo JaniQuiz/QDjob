@@ -7,7 +7,7 @@ import random
 import re
 from urllib.parse import urlencode
 from typing import Dict, List, Optional, Any, Callable
-from enctrypt_qidian import getQDInfo, getQDSign, getSDKSign, sort_query_string, getborgus
+from enctrypt_qidian import getQDInfo, getQDSign, getSDKSign, sort_query_string, getborgus, getibex
 from push import PushService, FeiShu, ServerChan, QiweiPush
 from logger import LoggerManager
 from logger import DEFAULT_LOG_RETENTION
@@ -372,13 +372,14 @@ class QidianClient:
         SDKSign = getSDKSign(ts, query_string, self.version, self.qid)
         QDInfo = getQDInfo(ts, self.QDInfo)
         borgus = getborgus(query_string)
+        ibex = getibex(ts, self.ibex)
         
         # 更新headers
         headers = self.headers_sdk.copy()
         headers.update({
             'tstamp': ts,
             'SDKSign': SDKSign,
-            'ibex': self.ibex,
+            'ibex': ibex,
             'borgus': borgus
         })
 
