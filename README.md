@@ -58,7 +58,7 @@
         Mozilla/5.0 (Linux; Android 13; PDEM10 Build/TP1A.220905.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/109.0.5414.86 MQQBrowser/6.2 TBS/047601 Mobile Safari/537.36 QDJSSDK/1.0  QDNightStyle_1  QDReaderAndroid/7.9.384/1466/1000032/OPPO/QDShowNativeLoading
         ```
         
-   - `ibex`：非必填，该参数可能是验证码相关参数，不填会导致出验证码。需要抓包获取一次，此后理论上永久有效。
+   - `ibex`：必填，该参数可能是验证码相关参数，不填会导致出验证码，已修改脚本为不填无法运行。需要抓包获取一次，此后理论上永久有效。
    
      ​         **获取方式**：抓包获取。推荐抓包接口(福利中心页面)：`https://h5.if.qidian.com/argus/api/v2/video/adv/mainPage`
    
@@ -132,6 +132,7 @@
 ## 叠甲
     本项目为个人项目，仅供学习交流使用，请勿用于非法用途，请于下载后24小时内删除。
     如有侵权，请联系删除。
+
 
 
 
