@@ -8,10 +8,10 @@
       "username": "username",
       "cookies_file": "cookies/username.json",
       "user_agent": "",
+      "ibex": "",
       "tasks": {
         "签到任务": true,
         "激励碎片任务": true,
-        "额外激励任务": true,
         "章节卡任务": true,
         "每日抽奖任务": true
       },
@@ -24,6 +24,11 @@
         {
           "type": "serverchan",
           "sckey": "SCUxxxxxx"
+        },
+        {
+          "type": "qiwei",
+          "webhook_url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxxxxxx",
+          "phone": "xxxxxxxxxxx8645"
         }
       ]
     }

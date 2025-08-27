@@ -158,8 +158,9 @@ class ServerChan(PushService):
 class QiweiPush(PushService):
     """Qiwei推送"""
 
-    def __init__(self, webhook_url: str):
+    def __init__(self, webhook_url: str, phone: str = ""):
         self.webhook_url = webhook_url
+        self.phone = phone
         super().__init__()
 
     def _validate_config(self):
@@ -172,9 +173,10 @@ class QiweiPush(PushService):
         try:
             url = self.webhook_url
             data = {
-                "msgtype": "markdown",
-                "markdown": {
-                    "content": f'## {title} \n {content}',
+                "msgtype": "text",
+                "text": {
+                    "content": f'QDjob-{title} \n {content}',
+                    "mentioned_mobile_list":[self.phone] if self.phone else []
                 },
             }
 

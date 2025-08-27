@@ -466,6 +466,9 @@ class ConfigEditor:
             qiwei_url = ttk.Entry(qiwei_frame)
             qiwei_url.grid(row=0, column=1, sticky="ew")
             qiwei_frame.grid_columnconfigure(1, weight=1)
+            ttk.Label(qiwei_frame, text="Phone Number:").grid(row=1, column=0, sticky="w")
+            qiwei_phone = ttk.Entry(qiwei_frame)
+            qiwei_phone.grid(row=1, column=1, sticky="ew")
 
             # 类型切换处理
             def update_config_fields(*args):
@@ -530,6 +533,7 @@ class ConfigEditor:
                     service = {
                         "type": "qiwei",
                         "webhook_url": url,
+                        "phone": qiwei_phone.get(),
                         "title": f"企业微信 - {url[-20:]}"
                     }
                 
@@ -640,6 +644,10 @@ class ConfigEditor:
             qiwei_url = ttk.Entry(qiwei_frame)
             qiwei_url.insert(0, service.get("webhook_url", ""))
             qiwei_url.grid(row=0, column=1, sticky="ew")
+            ttk.Label(qiwei_frame, text="Phone Number:").grid(row=1, column=0, sticky="w")
+            qiwei_phone = ttk.Entry(qiwei_frame)
+            qiwei_phone.insert(0, service.get("phone", ""))
+            qiwei_phone.grid(row=1, column=1, sticky="ew")
 
             # 根据类型显示对应配置
             if service["type"] == "feishu":
@@ -653,7 +661,7 @@ class ConfigEditor:
             elif service["type"] == "qiwei":
                 feishu_frame.grid_remove()
                 server_frame.grid_remove()
-                qiwei_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+                qiwei_frame.grid(row=2, column=0, columnspan=2, sticky="ew")
             else:
                 feishu_frame.grid_remove()
                 server_frame.grid_remove()
@@ -701,6 +709,7 @@ class ConfigEditor:
                     
                     service.update({
                         "webhook_url": url,
+                        "phone": qiwei_phone.get(),
                         "title": f"企微推送 - {url[-20:]}"
                     })
                 else:
@@ -975,6 +984,9 @@ class ConfigEditor:
             ttk.Label(qiwei_frame, text="Webhook URL:").grid(row=0, column=0, sticky="w")
             qiwei_url = ttk.Entry(qiwei_frame)
             qiwei_url.grid(row=0, column=1, sticky="ew")
+            ttk.Label(qiwei_frame, text="Phone Number:").grid(row=1, column=0, sticky="w")
+            qiwei_phone = ttk.Entry(qiwei_frame)
+            qiwei_phone.grid(row=1, column=1, sticky="ew")
             qiwei_frame.grid_columnconfigure(1, weight=1)
 
             # 类型切换处理
@@ -1039,6 +1051,7 @@ class ConfigEditor:
                     service = {
                         "type": "qiwei",
                         "webhook_url": url,
+                        "phone": qiwei_phone.get(),
                         "title": f"企业微信 - {url[-20:]}"
                     }
                 else:
@@ -1133,7 +1146,12 @@ class ConfigEditor:
             ttk.Label(qiwei_frame, text="Webhook URL:").grid(row=0, column=0, sticky="w")
             qiwei_url = ttk.Entry(qiwei_frame)
             qiwei_url.insert(0, service.get("webhook_url", ""))
-            qiwei_url.grid(row=0, column=1, sticky="ew")
+            qiwei_url.grid(row=0, column=1, sticky="ew")  # ← 需要加这一行
+
+            ttk.Label(qiwei_frame, text="Phone Number:").grid(row=2, column=0, sticky="w")
+            qiwei_phone = ttk.Entry(qiwei_frame)
+            qiwei_phone.insert(0, service.get("phone", ""))
+            qiwei_phone.grid(row=2, column=1, sticky="ew")
 
             # 根据类型显示对应配置
             if service["type"] == "feishu":
@@ -1147,7 +1165,7 @@ class ConfigEditor:
             elif service["type"] == "qiwei":
                 feishu_frame.grid_remove()
                 server_frame.grid_remove()
-                qiwei_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+                qiwei_frame.grid(row=2, column=0, columnspan=2, sticky="ew")
             else:
                 feishu_frame.grid_remove()
                 server_frame.grid_remove()
@@ -1194,6 +1212,7 @@ class ConfigEditor:
                     
                     service.update({
                         "webhook_url": url,
+                        "phone": qiwei_phone.get(),
                         "title": f"企微推送 - {url[-20:]}"
                     })
                 else: 
