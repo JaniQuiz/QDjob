@@ -192,6 +192,49 @@ class QiweiPush(PushService):
         except Exception as e:
             logger.error(f"[Qiwei企业微信] 发送异常: {str(e)}")
             return {"success": False, "error": str(e), "service": "qiwei"}
+        
+class PushPlus(PushService):
+    """PushPlus推送"""
+
+    def __init__(self, token: str, topic: str):
+        self.token = token
+        self.topic = topic
+        super().__init__()
+
+    def _validate_config(self):
+        """验证PushPlus配置"""
+        if not self.token:
+            logger.warning(f"[PushPlus配置] token 不能为空")
+
+    def send(self, title: str, content: str) -> dict:
+        """发送文本消息"""
+        try: 
+            url = f"http://www.pushplus.plus/send"
+            headers = {
+                'Content-Type':'application/json'
+            }
+            data = {
+                "token":self.token,
+                "title":title,
+                "content":content,
+            }
+            if self.topic:
+                data["topic"] = self.topic
+            data=json.dumps(data).encode(encoding='utf-8')
+            response = requests.post(url, data=data, headers=headers, timeout=10)
+            response.raise_for_status()
+            result = response.json()
+            success = result.get("code") == 200
+            if not success:
+                logger.debug(f"[PushPlus] 推送异常: {result}")
+            return {"success": success, "raw": result, "service": "pushplus"}
+            
+
+        except Exception as e:
+            logger.error(f"[PushPlus] 推送异常: {str(e)}")
+            return {"success": False, "error": str(e), "service": "pushplus"}
+        
+
 
 # 新增推送服务只需继承PushService基类
 class Telegram(PushService):

@@ -425,7 +425,7 @@ class ConfigEditor:
             # 类型选择
             ttk.Label(push_form, text="类型:").grid(row=0, column=0, sticky="w")
             service_type = tk.StringVar()
-            ttk.Combobox(push_form, textvariable=service_type,values=["feishu", "serverchan", "qiwei"],
+            ttk.Combobox(push_form, textvariable=service_type,values=["feishu", "serverchan", "qiwei", 'pushplus'],
                         state="readonly",width=15, font=self.default_font).grid(row=0, column=1, sticky="w")
 
             # 飞书配置区域
@@ -467,20 +467,39 @@ class ConfigEditor:
             qiwei_url.grid(row=0, column=1, sticky="ew")
             qiwei_frame.grid_columnconfigure(1, weight=1)
 
+            # PushPlus配置区域
+            pushplus_frame = ttk.Frame(push_form)
+            ttk.Label(pushplus_frame, text="Token:").grid(row=0, column=0, sticky="w")
+            token_entry = ttk.Entry(pushplus_frame)
+            token_entry.grid(row=0, column=1, sticky="ew")
+            ttk.Label(pushplus_frame, text="群组id(不填只发给自己):").grid(row=1, column=0, sticky="w")
+            topic_entry = ttk.Entry(pushplus_frame)
+            topic_entry.grid(row=1, column=1, sticky="ew")
+            pushplus_frame.grid_rowconfigure(1, weight=1)
+            pushplus_frame.grid_columnconfigure(1, weight=1)
+
             # 类型切换处理
             def update_config_fields(*args):
                 if service_type.get() == "feishu":
                     feishu_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
                     server_frame.grid_remove()
                     qiwei_frame.grid_remove()
+                    pushplus_frame.grid_remove()
                 elif service_type.get() == "serverchan":
                     feishu_frame.grid_remove()
                     server_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
                     qiwei_frame.grid_remove()
+                    pushplus_frame.grid_remove()
                 elif service_type.get() == "qiwei":
                     feishu_frame.grid_remove()
                     server_frame.grid_remove()
                     qiwei_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+                    pushplus_frame.grid_remove()
+                elif service_type.get() == "pushplus":
+                    feishu_frame.grid_remove()
+                    server_frame.grid_remove()
+                    qiwei_frame.grid_remove()
+                    pushplus_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
             
             service_type.trace_add("write", update_config_fields)
             update_config_fields()  # 初始化显示
@@ -531,6 +550,19 @@ class ConfigEditor:
                         "type": "qiwei",
                         "webhook_url": url,
                         "title": f"企业微信 - {url[-20:]}"
+                    }
+
+                elif service_type_val == "pushplus":
+                    token = token_entry.get()
+                    if not token:
+                        messagebox.showerror("错误", "PushPlus Token不能为空")
+                        return
+                    
+                    service = {
+                        "type": "pushplus",
+                        "token": token,
+                        "topic": topic_entry.get(),
+                        "title": f"PushPlus - {token[-20:]}"
                     }
                 
                 else: 
@@ -641,23 +673,43 @@ class ConfigEditor:
             qiwei_url.insert(0, service.get("webhook_url", ""))
             qiwei_url.grid(row=0, column=1, sticky="ew")
 
+            # PushPlus配置区域
+            pushplus_frame = ttk.Frame(push_form)
+            ttk.Label(pushplus_frame, text="Token:").grid(row=0, column=0, sticky="w")
+            token_entry = ttk.Entry(pushplus_frame)
+            token_entry.insert(0, service.get("token", ""))
+            token_entry.grid(row=0, column=1, sticky="ew")
+            ttk.Label(pushplus_frame, text="群组id(不填只发给自己):").grid(row=1, column=0, sticky="w")
+            topic_entry = ttk.Entry(pushplus_frame)
+            topic_entry.insert(0, service.get("topic", ""))
+            topic_entry.grid(row=1, column=1, sticky="ew")
+
             # 根据类型显示对应配置
             if service["type"] == "feishu":
                 feishu_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
                 server_frame.grid_remove()
                 qiwei_frame.grid_remove()
+                pushplus_frame.grid_remove()
             elif service["type"] == "serverchan":
                 feishu_frame.grid_remove()
                 server_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
                 qiwei_frame.grid_remove()
+                pushplus_frame.grid_remove()
             elif service["type"] == "qiwei":
                 feishu_frame.grid_remove()
                 server_frame.grid_remove()
                 qiwei_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+                pushplus_frame.grid_remove()
+            elif service["type"] == "pushplus":
+                feishu_frame.grid_remove()
+                server_frame.grid_remove()
+                qiwei_frame.grid_remove()
+                pushplus_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
             else:
                 feishu_frame.grid_remove()
                 server_frame.grid_remove()
                 qiwei_frame.grid_remove()
+                pushplus_frame.grid_remove()
                 messagebox.showerror("错误", "未知推送服务类型")
 
             def update_push_service():
@@ -702,6 +754,18 @@ class ConfigEditor:
                     service.update({
                         "webhook_url": url,
                         "title": f"企微推送 - {url[-20:]}"
+                    })
+                elif service["type"] == "pushplus":
+                    token = token_entry.get()
+                    topic = topic_entry.get()
+                    if not token:
+                        messagebox.showerror("错误", "PushPlus Token不能为空")
+                        return
+                    
+                    service.update({
+                        "token": token,
+                        "topic": topic,
+                        "title": f"PushPlus推送 - {token[-20:]}"
                     })
                 else:
                     messagebox.showerror("错误", "未知推送服务类型")
@@ -936,7 +1000,7 @@ class ConfigEditor:
             # 类型选择
             ttk.Label(push_form, text="类型:").grid(row=0, column=0, sticky="w")
             service_type = tk.StringVar()
-            ttk.Combobox(push_form, textvariable=service_type,values=["feishu", "serverchan", "qiwei"],
+            ttk.Combobox(push_form, textvariable=service_type,values=["feishu", "serverchan", "qiwei", "pushplus"],
                         state="readonly",width=15, font=self.default_font).grid(row=0, column=1, sticky="w")
 
             # 飞书配置区域
@@ -977,20 +1041,39 @@ class ConfigEditor:
             qiwei_url.grid(row=0, column=1, sticky="ew")
             qiwei_frame.grid_columnconfigure(1, weight=1)
 
+            # PushPlus配置区域
+            pushplus_frame = ttk.Frame(push_form)
+            ttk.Label(pushplus_frame, text="Token:").grid(row=0, column=0, sticky="w")
+            token_entry = ttk.Entry(pushplus_frame)
+            token_entry.grid(row=0, column=1, sticky="ew")
+            ttk.Label(pushplus_frame, text="群组id(不填只发给自己):").grid(row=1, column=0, sticky="w")
+            topic_entry = ttk.Entry(pushplus_frame)
+            topic_entry.grid(row=1, column=1, sticky="ew")
+            pushplus_frame.grid_columnconfigure(1, weight=1)
+
             # 类型切换处理
             def update_config_fields(*args):
                 if service_type.get() == "feishu":
                     feishu_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
                     server_frame.grid_remove()
                     qiwei_frame.grid_remove()
+                    pushplus_frame.grid_remove()
                 elif service_type.get() == "serverchan":
                     feishu_frame.grid_remove()
                     server_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
                     qiwei_frame.grid_remove()
+                    pushplus_frame.grid_remove()
                 elif service_type.get() == "qiwei":
                     feishu_frame.grid_remove()
                     server_frame.grid_remove()
                     qiwei_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+                    pushplus_frame.grid_remove()
+                elif service_type.get() == "pushplus":
+                    feishu_frame.grid_remove()
+                    server_frame.grid_remove()
+                    qiwei_frame.grid_remove()
+                    pushplus_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+
 
             service_type.trace_add("write", update_config_fields)
             update_config_fields()  # 初始化显示
@@ -1040,6 +1123,18 @@ class ConfigEditor:
                         "type": "qiwei",
                         "webhook_url": url,
                         "title": f"企业微信 - {url[-20:]}"
+                    }
+                elif service_type_val == "pushplus":
+                    token = token_entry.get()
+                    topic = topic_entry.get()
+                    if not token:
+                        messagebox.showerror("错误", "PushPlus Token不能为空")
+                        return
+                    service = {
+                        "type": "pushplus",
+                        "token": token,
+                        "topic": topic,
+                        "title": f"PushPlus - {token[-20:]}"
                     }
                 else:
                     messagebox.showerror("错误", "未知的推送服务类型")
@@ -1135,19 +1230,39 @@ class ConfigEditor:
             qiwei_url.insert(0, service.get("webhook_url", ""))
             qiwei_url.grid(row=0, column=1, sticky="ew")
 
+            # PushPlus配置区域
+            pushplus_frame = ttk.Frame(push_form)
+            ttk.Label(pushplus_frame, text="Token:").grid(row=0, column=0, sticky="w")
+            token_entry = ttk.Entry(pushplus_frame)
+            token_entry.insert(0, service.get("token", ""))
+            token_entry.grid(row=0, column=1, sticky="ew")
+            ttk.Label(pushplus_frame, text="群组id(不填只发给自己):").grid(row=1, column=0, sticky="w")
+            topic_entry = ttk.Entry(pushplus_frame)
+            topic_entry.insert(0, service.get("topic", ""))
+            topic_entry.grid(row=1, column=1, sticky="ew")
+            pushplus_frame.grid_columnconfigure(1, weight=1)
+
             # 根据类型显示对应配置
             if service["type"] == "feishu":
                 feishu_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
                 server_frame.grid_remove()
                 qiwei_frame.grid_remove()
+                pushplus_frame.grid_remove()
             elif service["type"] == "serverchan":
                 feishu_frame.grid_remove()
                 server_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
                 qiwei_frame.grid_remove()
+                pushplus_frame.grid_remove()
             elif service["type"] == "qiwei":
                 feishu_frame.grid_remove()
                 server_frame.grid_remove()
                 qiwei_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
+                pushplus_frame.grid_remove()
+            elif service["type"] == "pushplus":
+                feishu_frame.grid_remove()
+                server_frame.grid_remove()
+                qiwei_frame.grid_remove()
+                pushplus_frame.grid(row=1, column=0, columnspan=2, sticky="ew")
             else:
                 feishu_frame.grid_remove()
                 server_frame.grid_remove()
@@ -1195,6 +1310,18 @@ class ConfigEditor:
                     service.update({
                         "webhook_url": url,
                         "title": f"企微推送 - {url[-20:]}"
+                    })
+                elif service["type"] == "pushplus":
+                    token = token_entry.get()
+                    topic = topic_entry.get()
+                    if not token:
+                        messagebox.showerror("错误", "PushPlus Token不能为空")
+                        return
+                    
+                    service.update({
+                        "token": token,
+                        "topic": topic,
+                        "title": f"PushPlus - {token[-20:]}"
                     })
                 else: 
                     messagebox.showerror("错误", "未知推送服务类型")
@@ -1322,7 +1449,7 @@ class ConfigEditor:
                 return
 
             try:
-                with open(user["cookies_file"], 'w', encoding='utf-8') as f:
+                with open(edited_user["cookies_file"], 'w', encoding='utf-8') as f:
                     json.dump(cookies_data, f, indent=2, ensure_ascii=False)
             except Exception as e:
                 messagebox.showerror("错误", f"无法写入Cookies文件：{str(e)}")

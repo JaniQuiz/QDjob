@@ -8,7 +8,7 @@ import re
 from urllib.parse import urlencode
 from typing import Dict, List, Optional, Any, Callable
 from enctrypt_qidian import getQDInfo, getQDSign, getSDKSign, sort_query_string, getborgus, getibex
-from push import PushService, FeiShu, ServerChan, QiweiPush
+from push import PushService, FeiShu, ServerChan, QiweiPush, PushPlus
 from logger import LoggerManager
 from logger import DEFAULT_LOG_RETENTION
 
@@ -85,6 +85,8 @@ class ConfigManager:
                     push_service = ServerChan(**config_without_type)
                 elif push_type == 'qiwei':
                     push_service = QiweiPush(**config_without_type)
+                elif push_type == 'pushplus':
+                    push_service = PushPlus(**config_without_type)
                 else:
                     logger.warning(f"[推送配置] 用户[{user_data['username']}] 未知的推送类型: {push_type}")
                     continue
@@ -191,7 +193,7 @@ class ConfigManager:
             logger.error(f"用户[{user_data['username']}] 推送服务配置必须为列表类型")
             return False
 
-        valid_push_types = ['feishu', 'serverchan', 'qiwei']
+        valid_push_types = ['feishu', 'serverchan', 'qiwei', 'pushplus']
         for push_config in push_services:
             if not isinstance(push_config, dict):
                 logger.warning(f"用户[{user_data['username']}] 推送配置项不是字典类型")
@@ -233,6 +235,11 @@ class ConfigManager:
                     return False
                 if not isinstance(push_config.get('webhook_url', ''), str):
                     logger.warning(f"[配置错误] 用户[{user_data['username']}] Qiwei推送 webhook_url 必须为字符串类型")
+                    return False
+            
+            elif push_type == 'pushplus':
+                if not push_config.get('token'):
+                    logger.warning(f"[配置错误] 用户[{user_data['username']}] PushPlus推送缺少必要字段: token")
                     return False
 
         return True
@@ -551,10 +558,10 @@ class QidianClient:
         try:
             # 获取任务列表
             result = self.get_adv_job()
-            task_list = result['Data']['CountdownBenefitModule']['TaskList']
+            task_list = result['Data']['VideoRewardTab']['TaskList']
             
             for task in task_list:
-                if task['Title'] == "额外看3次小视频得奖励":
+                if task['Title'] == "完成3个广告任务得奖励":
                     if task['IsReceived'] == 1:
                         logger.info("额外章节卡任务已完成")
                         return {'status': 'success'}
@@ -573,10 +580,10 @@ class QidianClient:
                 
             # 检查任务状态
             check_result = self.get_adv_job()
-            check_task_list = check_result['Data']['CountdownBenefitModule']['TaskList']
+            check_task_list = check_result['Data']['VideoRewardTab']['TaskList']
             
             for task in check_task_list:
-                if task['Title'] == "额外看3次小视频得奖励":
+                if task['Title'] == "完成3个广告任务得奖励":
                     if task['IsReceived'] == 1:
                         logger.info("额外章节卡任务完成")
                         return {'status': 'success'}
