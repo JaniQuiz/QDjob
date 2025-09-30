@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, ANCHOR
 import os, re
 import json
 
@@ -415,7 +415,7 @@ class ConfigEditor:
             """添加推送服务配置"""
             push_dialog = tk.Toplevel(dialog)
             push_dialog.title("添加推送服务")
-            push_dialog.geometry("400x250")
+            push_dialog.geometry("600x600")
             
             push_form = ttk.Frame(push_dialog, padding="15 10 15 10")
             push_form.pack(fill="both", expand=True)
@@ -464,8 +464,77 @@ class ConfigEditor:
             qiwei_frame = ttk.Frame(push_form)
             ttk.Label(qiwei_frame, text="Webhook URL:").grid(row=0, column=0, sticky="w")
             qiwei_url = ttk.Entry(qiwei_frame)
-            qiwei_url.grid(row=0, column=1, sticky="ew")
+            qiwei_url.grid(row=0, column=1, sticky="ew", padx=8)
+            qiwei_frame.grid_columnconfigure(0, minsize=250)
             qiwei_frame.grid_columnconfigure(1, weight=1)
+
+            # 添加提示信息
+            ttk.Label(qiwei_frame, text="下面二者选择一种方式填写即可，也可以都填或不填", 
+                    style="Help.TLabel").grid(row=1, column=0, columnspan=2, sticky="w", pady=(5, 0))
+            ttk.Label(qiwei_frame, text="输入后点击+添加到列表", 
+                    style="Help.TLabel").grid(row=2, column=0, columnspan=2, sticky="w", pady=(5, 0))
+
+            # 用户ID列表配置
+            ttk.Label(qiwei_frame, text="用户ID列表:").grid(row=3, column=0, sticky="w", pady=(5, 0))
+            userids_frame = ttk.Frame(qiwei_frame)
+            userids_frame.grid(row=3, column=1, sticky="ew", pady=(5, 0))
+
+            ttk.Label(qiwei_frame, text="通过特殊方式获取的userid\n如果不懂，请选择手机号方式填写\n(@all代表@全体)", 
+                    style="Help.TLabel").grid(row=4, column=0, sticky="w", pady=(10, 0), columnspan=2)
+
+            userids_entry = ttk.Entry(userids_frame)
+            userids_entry.pack(side="left", fill="x", expand=True)
+
+            def add_userid():
+                """添加用户ID到列表"""
+                userid = userids_entry.get().strip()
+                if userid:
+                    userids_listbox.insert("end", userid)
+                    userids_entry.delete(0, "end")
+
+            ttk.Button(userids_frame, text="+", command=add_userid, width=3).pack(side="left", padx=(5, 0))
+
+            # 用户ID列表显示
+            userids_listbox = tk.Listbox(qiwei_frame, height=5)
+            userids_listbox.grid(row=4, column=1, columnspan=2, sticky="ew", pady=(5, 0))
+
+            # 删除用户ID按钮
+            ttk.Button(qiwei_frame, text="删除选中用户ID", 
+                    command=lambda: userids_listbox.delete(tk.ANCHOR)).grid(
+                row=5, column=1, columnspan=2, sticky="w", pady=(5, 0))
+
+            # 手机号列表配置
+            ttk.Label(qiwei_frame, text="手机号列表:").grid(row=6, column=0, sticky="w", pady=(5, 0))
+            phoneids_frame = ttk.Frame(qiwei_frame)
+            phoneids_frame.grid(row=6, column=1, sticky="ew", pady=(5, 0))
+
+            ttk.Label(qiwei_frame, text="请输入11位手机号", 
+                    style="Help.TLabel").grid(row=7, column=0, sticky="w", pady=(10, 0), columnspan=2)
+
+            phoneids_entry = ttk.Entry(phoneids_frame)
+            phoneids_entry.pack(side="left", fill="x", expand=True)
+
+            def add_phoneid():
+                """添加手机号到列表，带格式验证"""
+                phoneid = phoneids_entry.get().strip()
+                if phoneid:
+                    # 验证手机号格式（简单验证）
+                    if re.match(r'^1[3-9]\d{9}$', phoneid):
+                        phoneids_listbox.insert("end", phoneid)
+                        phoneids_entry.delete(0, "end")
+                    else:
+                        messagebox.showwarning("警告", "手机号格式不正确")
+
+            ttk.Button(phoneids_frame, text="+", command=add_phoneid, width=3).pack(side="left", padx=(5, 0))
+
+            # 手机号列表显示
+            phoneids_listbox = tk.Listbox(qiwei_frame, height=5)
+            phoneids_listbox.grid(row=7, column=1, columnspan=2, sticky="ew", pady=(5, 0))
+
+            # 删除手机号按钮
+            ttk.Button(qiwei_frame, text="删除选中手机号", 
+                    command=lambda: phoneids_listbox.delete(tk.ANCHOR)).grid(
+                row=8, column=1, columnspan=2, sticky="w", pady=(5, 0))
 
             # PushPlus配置区域
             pushplus_frame = ttk.Frame(push_form)
@@ -546,9 +615,15 @@ class ConfigEditor:
                         messagebox.showerror("错误", "QiWei Webhook URL不能为空")
                         return
                     
+                    # 收集userids和phoneids
+                    userids = [userids_listbox.get(i) for i in range(userids_listbox.size())]
+                    phoneids = [phoneids_listbox.get(i) for i in range(phoneids_listbox.size())]
+                    
                     service = {
                         "type": "qiwei",
                         "webhook_url": url,
+                        "userids": userids,  # 保存为字符串列表
+                        "phoneids": phoneids,  # 保存为字符串列表
                         "title": f"企业微信 - {url[-20:]}"
                     }
 
@@ -625,7 +700,7 @@ class ConfigEditor:
             # 创建新的配置对话框进行编辑
             push_dialog = tk.Toplevel(dialog)
             push_dialog.title(f"编辑推送服务 - {service['type']}")
-            push_dialog.geometry("400x250")
+            push_dialog.geometry("600x600")
             
             push_form = ttk.Frame(push_dialog, padding="15 10 15 10")
             push_form.pack(fill="both", expand=True)
@@ -671,7 +746,85 @@ class ConfigEditor:
             ttk.Label(qiwei_frame, text="Webhook URL:").grid(row=0, column=0, sticky="w")
             qiwei_url = ttk.Entry(qiwei_frame)
             qiwei_url.insert(0, service.get("webhook_url", ""))
-            qiwei_url.grid(row=0, column=1, sticky="ew")
+            qiwei_url.grid(row=0, column=1, sticky="ew", padx=5)
+            qiwei_frame.grid_columnconfigure(0, minsize=250)
+            qiwei_frame.grid_columnconfigure(1, weight=1)
+
+            # 添加提示信息
+            ttk.Label(qiwei_frame, text="下面二者选择一种方式填写即可，也可以都填或不填", 
+                    style="Help.TLabel").grid(row=1, column=0, columnspan=2, sticky="w", pady=(5, 0))
+            ttk.Label(qiwei_frame, text="输入后点击+添加到列表", 
+                    style="Help.TLabel").grid(row=2, column=0, columnspan=2, sticky="w", pady=(5, 0))
+
+            # 用户ID列表配置
+            ttk.Label(qiwei_frame, text="用户ID列表:").grid(row=3, column=0, sticky="w", pady=(5, 0))
+            userids_frame = ttk.Frame(qiwei_frame)
+            userids_frame.grid(row=3, column=1, sticky="ew", pady=(5, 0))
+
+            ttk.Label(qiwei_frame, text="通过特殊方式获取的userid，如果不懂，请选择手机号方式填写\n(@all代表@全体)", 
+                    style="Help.TLabel").grid(row=4, column=0, sticky="w", pady=(10, 0), columnspan=4)
+
+            userids_entry = ttk.Entry(userids_frame)
+            userids_entry.pack(side="left", fill="x", expand=True)
+
+            def add_userid():
+                """添加用户ID到列表"""
+                userid = userids_entry.get().strip()
+                if userid:
+                    userids_listbox.insert("end", userid)
+                    userids_entry.delete(0, "end")
+
+            ttk.Button(userids_frame, text="+", command=add_userid, width=3).pack(side="left", padx=(5, 0))
+
+            # 用户ID列表显示
+            userids_listbox = tk.Listbox(qiwei_frame, height=5)
+            userids_listbox.grid(row=4, column=1, columnspan=2, sticky="ew", pady=(5, 0))
+
+            # 删除用户ID按钮
+            ttk.Button(qiwei_frame, text="删除选中用户ID", 
+                    command=lambda: userids_listbox.delete(tk.ANCHOR)).grid(
+                row=5, column=1, columnspan=2, sticky="w", pady=(5, 0))
+
+            # 手机号列表配置
+            ttk.Label(qiwei_frame, text="手机号列表:").grid(row=6, column=0, sticky="w", pady=(5, 0))
+            phoneids_frame = ttk.Frame(qiwei_frame)
+            phoneids_frame.grid(row=6, column=1, sticky="ew", pady=(5, 0))
+
+            ttk.Label(qiwei_frame, text="请输入11位手机号", 
+                    style="Help.TLabel").grid(row=7, column=0, sticky="w", pady=(10, 0), columnspan=2)
+
+            phoneids_entry = ttk.Entry(phoneids_frame)
+            phoneids_entry.pack(side="left", fill="x", expand=True)
+
+            def add_phoneid():
+                """添加手机号到列表，带格式验证"""
+                phoneid = phoneids_entry.get().strip()
+                if phoneid:
+                    # 验证手机号格式
+                    if re.match(r'^1[3-9]\d{9}$', phoneid):
+                        phoneids_listbox.insert("end", phoneid)
+                        phoneids_entry.delete(0, "end")
+                    else:
+                        messagebox.showwarning("警告", "手机号格式不正确")
+
+            ttk.Button(phoneids_frame, text="+", command=add_phoneid, width=3).pack(side="left", padx=(5, 0))
+
+            # 手机号列表显示
+            phoneids_listbox = tk.Listbox(qiwei_frame, height=5)
+            phoneids_listbox.grid(row=7, column=1, columnspan=2, sticky="ew", pady=(5, 0))
+
+            # 删除手机号按钮
+            ttk.Button(qiwei_frame, text="删除选中手机号", 
+                    command=lambda: phoneids_listbox.delete(tk.ANCHOR)).grid(
+                row=8, column=1, columnspan=2, sticky="w", pady=(5, 0))
+
+            # 加载已保存的userids和phoneids
+            if service.get("userids"):
+                for userid in service["userids"]:
+                    userids_listbox.insert("end", userid)
+            if service.get("phoneids"):
+                for phoneid in service["phoneids"]:
+                    phoneids_listbox.insert("end", phoneid)
 
             # PushPlus配置区域
             pushplus_frame = ttk.Frame(push_form)
@@ -751,8 +904,14 @@ class ConfigEditor:
                         messagebox.showerror("错误", "企微Webhook URL不能为空")
                         return
                     
+                    # 收集userids和phoneids
+                    userids = [userids_listbox.get(i) for i in range(userids_listbox.size())]
+                    phoneids = [phoneids_listbox.get(i) for i in range(phoneids_listbox.size())]
+                    
                     service.update({
                         "webhook_url": url,
+                        "userids": userids,
+                        "phoneids": phoneids,
                         "title": f"企微推送 - {url[-20:]}"
                     })
                 elif service["type"] == "pushplus":
@@ -990,7 +1149,7 @@ class ConfigEditor:
             """添加推送服务配置"""
             push_dialog = tk.Toplevel(dialog)
             push_dialog.title("添加推送服务")
-            push_dialog.geometry("400x250")
+            push_dialog.geometry("600x600")
 
             push_form = ttk.Frame(push_dialog, padding="15 10 15 10")
             push_form.pack(fill="both", expand=True)
@@ -1038,8 +1197,77 @@ class ConfigEditor:
             qiwei_frame = ttk.Frame(push_form)
             ttk.Label(qiwei_frame, text="Webhook URL:").grid(row=0, column=0, sticky="w")
             qiwei_url = ttk.Entry(qiwei_frame)
-            qiwei_url.grid(row=0, column=1, sticky="ew")
+            qiwei_url.grid(row=0, column=1, sticky="ew", padx=8)
+            qiwei_frame.grid_columnconfigure(0, minsize=250)
             qiwei_frame.grid_columnconfigure(1, weight=1)
+
+            # 添加提示信息
+            ttk.Label(qiwei_frame, text="下面二者选择一种方式填写即可，也可以都填或不填", 
+                    style="Help.TLabel").grid(row=1, column=0, columnspan=2, sticky="w", pady=(5, 0))
+            ttk.Label(qiwei_frame, text="输入后点击+添加到列表", 
+                    style="Help.TLabel").grid(row=2, column=0, columnspan=2, sticky="w", pady=(5, 0))
+
+            # 用户ID列表配置
+            ttk.Label(qiwei_frame, text="用户ID列表:").grid(row=3, column=0, sticky="w", pady=(5, 0))
+            userids_frame = ttk.Frame(qiwei_frame)
+            userids_frame.grid(row=3, column=1, sticky="ew", pady=(5, 0))
+
+            ttk.Label(qiwei_frame, text="通过特殊方式获取的userid，如果不懂，请选择手机号方式填写\n(@all代表@全体)", 
+                    style="Help.TLabel").grid(row=4, column=0, sticky="w", pady=(10, 0), columnspan=2)
+
+            userids_entry = ttk.Entry(userids_frame)
+            userids_entry.pack(side="left", fill="x", expand=True)
+
+            def add_userid():
+                """添加用户ID到列表"""
+                userid = userids_entry.get().strip()
+                if userid:
+                    userids_listbox.insert("end", userid)
+                    userids_entry.delete(0, "end")
+
+            ttk.Button(userids_frame, text="+", command=add_userid, width=3).pack(side="left", padx=(5, 0))
+
+            # 用户ID列表显示
+            userids_listbox = tk.Listbox(qiwei_frame, height=5)
+            userids_listbox.grid(row=4, column=1, columnspan=2, sticky="ew", pady=(5, 0))
+
+            # 删除用户ID按钮
+            ttk.Button(qiwei_frame, text="删除选中用户ID", 
+                    command=lambda: userids_listbox.delete(tk.ANCHOR)).grid(
+                row=5, column=1, columnspan=2, sticky="w", pady=(5, 0))
+
+            # 手机号列表配置
+            ttk.Label(qiwei_frame, text="手机号列表:").grid(row=6, column=0, sticky="w", pady=(5, 0))
+            phoneids_frame = ttk.Frame(qiwei_frame)
+            phoneids_frame.grid(row=6, column=1, sticky="ew", pady=(5, 0))
+
+            ttk.Label(qiwei_frame, text="请输入11位手机号", 
+                    style="Help.TLabel").grid(row=7, column=0, sticky="w", pady=(10, 0), columnspan=2)
+
+            phoneids_entry = ttk.Entry(phoneids_frame)
+            phoneids_entry.pack(side="left", fill="x", expand=True)
+
+            def add_phoneid():
+                """添加手机号到列表，带格式验证"""
+                phoneid = phoneids_entry.get().strip()
+                if phoneid:
+                    # 验证手机号格式（简单验证）
+                    if re.match(r'^1[3-9]\d{9}$', phoneid):
+                        phoneids_listbox.insert("end", phoneid)
+                        phoneids_entry.delete(0, "end")
+                    else:
+                        messagebox.showwarning("警告", "手机号格式不正确")
+
+            ttk.Button(phoneids_frame, text="+", command=add_phoneid, width=3).pack(side="left", padx=(5, 0))
+
+            # 手机号列表显示
+            phoneids_listbox = tk.Listbox(qiwei_frame, height=5)
+            phoneids_listbox.grid(row=7, column=1, columnspan=2, sticky="ew", pady=(5, 0))
+
+            # 删除手机号按钮
+            ttk.Button(qiwei_frame, text="删除选中手机号", 
+                    command=lambda: phoneids_listbox.delete(tk.ANCHOR)).grid(
+                row=8, column=1, columnspan=2, sticky="w", pady=(5, 0))
 
             # PushPlus配置区域
             pushplus_frame = ttk.Frame(push_form)
@@ -1119,9 +1347,15 @@ class ConfigEditor:
                         messagebox.showerror("错误", "QiWei Webhook URL不能为空")
                         return
                     
+                    # 收集userids和phoneids
+                    userids = [userids_listbox.get(i) for i in range(userids_listbox.size())]
+                    phoneids = [phoneids_listbox.get(i) for i in range(phoneids_listbox.size())]
+                    
                     service = {
                         "type": "qiwei",
                         "webhook_url": url,
+                        "userids": userids,  # 保存为字符串列表
+                        "phoneids": phoneids,  # 保存为字符串列表
                         "title": f"企业微信 - {url[-20:]}"
                     }
                 elif service_type_val == "pushplus":
@@ -1177,7 +1411,7 @@ class ConfigEditor:
             # 创建新的配置对话框进行编辑
             push_dialog = tk.Toplevel(dialog)
             push_dialog.title(f"编辑推送服务 - {service['type']}")
-            push_dialog.geometry("400x250")
+            push_dialog.geometry("600x600")
 
             push_form = ttk.Frame(push_dialog, padding="15 10 15 10")
             push_form.pack(fill="both", expand=True)
@@ -1228,7 +1462,85 @@ class ConfigEditor:
             ttk.Label(qiwei_frame, text="Webhook URL:").grid(row=0, column=0, sticky="w")
             qiwei_url = ttk.Entry(qiwei_frame)
             qiwei_url.insert(0, service.get("webhook_url", ""))
-            qiwei_url.grid(row=0, column=1, sticky="ew")
+            qiwei_url.grid(row=0, column=1, sticky="ew", padx=5)
+            qiwei_frame.grid_columnconfigure(0, minsize=250)
+            qiwei_frame.grid_columnconfigure(1, weight=1)
+
+            # 添加提示信息
+            ttk.Label(qiwei_frame, text="下面二者选择一种方式填写即可，也可以都填或不填", 
+                    style="Help.TLabel").grid(row=1, column=0, columnspan=2, sticky="w", pady=(5, 0))
+            ttk.Label(qiwei_frame, text="输入后点击+添加到列表", 
+                    style="Help.TLabel").grid(row=2, column=0, columnspan=2, sticky="w", pady=(5, 0))
+
+            # 用户ID列表配置
+            ttk.Label(qiwei_frame, text="用户ID列表:").grid(row=3, column=0, sticky="w", pady=(5, 0))
+            userids_frame = ttk.Frame(qiwei_frame)
+            userids_frame.grid(row=3, column=1, sticky="ew", pady=(5, 0))
+
+            ttk.Label(qiwei_frame, text="通过特殊方式获取的userid，如果不懂，请选择手机号方式填写\n(@all代表@全体)", 
+                    style="Help.TLabel").grid(row=4, column=0, sticky="w", pady=(10, 0), columnspan=4)
+
+            userids_entry = ttk.Entry(userids_frame)
+            userids_entry.pack(side="left", fill="x", expand=True)
+
+            def add_userid():
+                """添加用户ID到列表"""
+                userid = userids_entry.get().strip()
+                if userid:
+                    userids_listbox.insert("end", userid)
+                    userids_entry.delete(0, "end")
+
+            ttk.Button(userids_frame, text="+", command=add_userid, width=3).pack(side="left", padx=(5, 0))
+
+            # 用户ID列表显示
+            userids_listbox = tk.Listbox(qiwei_frame, height=5)
+            userids_listbox.grid(row=4, column=1, columnspan=2, sticky="ew", pady=(5, 0))
+
+            # 删除用户ID按钮
+            ttk.Button(qiwei_frame, text="删除选中用户ID", 
+                    command=lambda: userids_listbox.delete(tk.ANCHOR)).grid(
+                row=5, column=1, columnspan=2, sticky="w", pady=(5, 0))
+
+            # 手机号列表配置
+            ttk.Label(qiwei_frame, text="手机号列表:").grid(row=6, column=0, sticky="w", pady=(5, 0))
+            phoneids_frame = ttk.Frame(qiwei_frame)
+            phoneids_frame.grid(row=6, column=1, sticky="ew", pady=(5, 0))
+
+            ttk.Label(qiwei_frame, text="请输入11位手机号", 
+                    style="Help.TLabel").grid(row=7, column=0, sticky="w", pady=(10, 0), columnspan=2)
+
+            phoneids_entry = ttk.Entry(phoneids_frame)
+            phoneids_entry.pack(side="left", fill="x", expand=True)
+
+            def add_phoneid():
+                """添加手机号到列表，带格式验证"""
+                phoneid = phoneids_entry.get().strip()
+                if phoneid:
+                    # 验证手机号格式
+                    if re.match(r'^1[3-9]\d{9}$', phoneid):
+                        phoneids_listbox.insert("end", phoneid)
+                        phoneids_entry.delete(0, "end")
+                    else:
+                        messagebox.showwarning("警告", "手机号格式不正确")
+
+            ttk.Button(phoneids_frame, text="+", command=add_phoneid, width=3).pack(side="left", padx=(5, 0))
+
+            # 手机号列表显示
+            phoneids_listbox = tk.Listbox(qiwei_frame, height=5)
+            phoneids_listbox.grid(row=7, column=1, columnspan=2, sticky="ew", pady=(5, 0))
+
+            # 删除手机号按钮
+            ttk.Button(qiwei_frame, text="删除选中手机号", 
+                    command=lambda: phoneids_listbox.delete(tk.ANCHOR)).grid(
+                row=8, column=1, columnspan=2, sticky="w", pady=(5, 0))
+
+            # 加载已保存的userids和phoneids
+            if service.get("userids"):
+                for userid in service["userids"]:
+                    userids_listbox.insert("end", userid)
+            if service.get("phoneids"):
+                for phoneid in service["phoneids"]:
+                    phoneids_listbox.insert("end", phoneid)
 
             # PushPlus配置区域
             pushplus_frame = ttk.Frame(push_form)
@@ -1267,6 +1579,7 @@ class ConfigEditor:
                 feishu_frame.grid_remove()
                 server_frame.grid_remove()
                 qiwei_frame.grid_remove()
+                pushplus_frame.grid_remove()
                 messagebox.showerror("错误", "未知推送服务类型")
 
             def update_push_service():
@@ -1307,8 +1620,14 @@ class ConfigEditor:
                         messagebox.showerror("错误", "企微Webhook URL不能为空")
                         return
                     
+                    # 收集userids和phoneids
+                    userids = [userids_listbox.get(i) for i in range(userids_listbox.size())]
+                    phoneids = [phoneids_listbox.get(i) for i in range(phoneids_listbox.size())]
+                    
                     service.update({
                         "webhook_url": url,
+                        "userids": userids,
+                        "phoneids": phoneids,
                         "title": f"企微推送 - {url[-20:]}"
                     })
                 elif service["type"] == "pushplus":
