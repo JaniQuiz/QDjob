@@ -4,13 +4,16 @@ import json
 import requests
 import time, sys
 import random
-import re
+import re, psutil
 from urllib.parse import urlencode
 from typing import Dict, List, Optional, Any, Callable
 from enctrypt_qidian import getQDInfo, getQDSign, getSDKSign, sort_query_string, getborgus, getibex
-from push import PushService, FeiShu, ServerChan, QiweiPush, PushPlus
+from push import PushService, FeiShu, ServerChan, QiweiPush
 from logger import LoggerManager
 from logger import DEFAULT_LOG_RETENTION
+
+import hashlib
+
 
 # 配置常量
 CONFIG_FILE = 'config.json'
@@ -28,13 +31,16 @@ class UserConfig:
     """用户配置"""
     def __init__(self, username: str, cookies: Dict[str, str], 
                  tasks: Dict[str, bool], user_agent: str, ibex: str,
-                 push_services: List[PushService]):
+                 push_services: List[PushService], tokenid: Optional[str] = None, 
+                 usertype: Optional[str] = None):
         self.username = username
         self.cookies = cookies
         self.tasks = tasks
         self.user_agent = user_agent
         self.ibex = ibex
         self.push_services = push_services
+        self.tokenid = tokenid
+        self.usertype = usertype
 
 class ConfigManager:
     """配置管理类"""
@@ -58,7 +64,8 @@ class ConfigManager:
         users = []
         for user_data in self.config['users']:
             if not self._validate_user_config(user_data):
-                raise ValueError(f"用户 [{user_data.get('username', '未知')}] 配置错误，跳过该用户。")
+                logger.error(f"用户 [{user_data.get('username', '未知')}] 配置错误，跳过该用户。")
+                continue
 
             # 加载cookies文件
             cookies_path = user_data.get('cookies_file', f"{COOKIES_DIR}/{user_data['username']}.json")
@@ -85,8 +92,6 @@ class ConfigManager:
                     push_service = ServerChan(**config_without_type)
                 elif push_type == 'qiwei':
                     push_service = QiweiPush(**config_without_type)
-                elif push_type == 'pushplus':
-                    push_service = PushPlus(**config_without_type)
                 else:
                     logger.warning(f"[推送配置] 用户[{user_data['username']}] 未知的推送类型: {push_type}")
                     continue
@@ -107,7 +112,9 @@ class ConfigManager:
                 tasks=user_data.get('tasks', {}),
                 user_agent=user_agent,
                 ibex=ibex,
-                push_services=push_services
+                push_services=push_services,
+                tokenid=user_data.get('tokenid'),
+                usertype=user_data.get('usertype'),
             )
             users.append(user)
             
@@ -163,11 +170,6 @@ class ConfigManager:
                 self.config['default_user_agent'] = DEFAULT_USER_AGENT
         else:
             self.config['default_user_agent'] = DEFAULT_USER_AGENT
-
-        # 校验ibex
-        if "ibex" in self.config:
-            if not isinstance(self.config['ibex'], str):
-                logger.warning("ibex配置错误：不是字符串类型。请检查输入")
         
         # 校验用户配置
         if 'users' in self.config:
@@ -176,11 +178,25 @@ class ConfigManager:
     
     def _validate_user_config(self, user_data: dict) -> bool:
         """验证单个用户配置"""
-        required_fields = ['username', 'cookies_file', 'tasks', 'user_agent', 'push_services']
+        required_fields = ['username', 'cookies_file', 'tasks', 'user_agent', 'ibex', 'push_services']
 
         for field in required_fields:
             if field not in user_data:
                 logger.error(f"用户[{user_data.get('username', '未知')}] 缺少必要字段: {field}")
+                return False
+            
+        if "ibex" in user_data:
+            if not isinstance(user_data['ibex'], str):
+                logger.warning(f"用户[{user_data['username']}] ibex配置错误：不是字符串类型。请检查输入")
+                return False
+            
+        if 'tokenid' in user_data:
+            if not isinstance(user_data['tokenid'], str):
+                logger.error(f"用户[{user_data.get('username', '未知')}] 字段[tokenid] 必须为字符串类型")
+                return False
+        if 'usertype' not in user_data:
+            if not isinstance(user_data['usertype'], str):
+                logger.error(f"用户[{user_data.get('username', '未知')}] 字段[usertype] 必须为字符串类型")
                 return False
 
         tasks = user_data.get('tasks', {})
@@ -193,7 +209,7 @@ class ConfigManager:
             logger.error(f"用户[{user_data['username']}] 推送服务配置必须为列表类型")
             return False
 
-        valid_push_types = ['feishu', 'serverchan', 'qiwei', 'pushplus']
+        valid_push_types = ['feishu', 'serverchan', 'qiwei']
         for push_config in push_services:
             if not isinstance(push_config, dict):
                 logger.warning(f"用户[{user_data['username']}] 推送配置项不是字典类型")
@@ -236,11 +252,6 @@ class ConfigManager:
                 if not isinstance(push_config.get('webhook_url', ''), str):
                     logger.warning(f"[配置错误] 用户[{user_data['username']}] Qiwei推送 webhook_url 必须为字符串类型")
                     return False
-            
-            elif push_type == 'pushplus':
-                if not push_config.get('token'):
-                    logger.warning(f"[配置错误] 用户[{user_data['username']}] PushPlus推送缺少必要字段: token")
-                    return False
 
         return True
 
@@ -248,6 +259,7 @@ class QidianClient:
     """起点客户端"""
     def __init__(self, config: UserConfig):
         self.config = config
+        self.tokenid = config.tokenid
         self.session = requests.Session()
         self._init_headers()
         # self.init_versions()
@@ -286,12 +298,23 @@ class QidianClient:
     
     def init(self) -> bool:
         """初始化信息"""
-        match = re.search(r'QDReaderAndroid/(\d+\.\d+\.\d+)/', self.config.user_agent)
-        self.version = match.group(1)
-        if not self.version: 
-            logger.error('无法获取版本号，请检查UA')
+        match = re.search(r'QDReaderAndroid/(\d+\.\d+\.\d+)/(\d+)/', self.config.user_agent)
+        if match:
+            self.version = match.group(1)
+            self.versioncode = match.group(2)
+            
+            if not self.version: 
+                logger.error('无法获取版本号，请检查UA')
+                return False
+            logger.debug(f'当前UA版本：{self.version}')
+
+            if not self.versioncode: 
+                logger.error('无法获取版本编号，请检查UA')
+                return False
+            logger.debug(f'当前UA版本编号：{self.versioncode}')
+        else:
+            logger.error('无法匹配User-Agent格式，请检查UA内容')
             return False
-        logger.debug(f'当前UA版本：{self.version}')
         
         self.ibex = self.config.ibex
         logger.debug(f'ibex：{self.ibex}')
@@ -339,11 +362,11 @@ class QidianClient:
         params = params or {}
         data = data or {}
         
-        # 生成加密参数
-        query_string = sort_query_string(urlencode(data) if data else urlencode(params))
-        QDSign = getQDSign(ts, query_string, self.version, self.qid)
+        data_encrypt = data.copy() if data else params.copy()
+
+        QDSign = getQDSign(ts, data_encrypt, self.version, self.qid)
         QDInfo = getQDInfo(ts, self.QDInfo)
-        borgus = getborgus(query_string)
+        borgus = getborgus(ts, data_encrypt, self.versioncode, self.qid)
         
         # 更新headers
         headers = self.headers_qd.copy()
@@ -374,11 +397,11 @@ class QidianClient:
         params = params or {}
         data = data or {}
         
-        # 生成加密参数
-        query_string = sort_query_string(urlencode(data) if data else urlencode(params))
-        SDKSign = getSDKSign(ts, query_string, self.version, self.qid)
+        data_encrypt = data.copy() if data else params.copy()
+        
+        SDKSign = getSDKSign(ts, data_encrypt, self.version, self.qid)
         QDInfo = getQDInfo(ts, self.QDInfo)
-        borgus = getborgus(query_string)
+        borgus = getborgus(ts, data_encrypt, self.versioncode, self.qid)
         ibex = getibex(ts, self.ibex)
         
         # 更新headers
@@ -406,6 +429,146 @@ class QidianClient:
                 response = self.session.get(url, params=params, headers=headers, cookies=self.config.cookies, data=data)
             
         return self._handle_response(response, "sdk类型请求失败")
+    
+    def _solve_captcha(self, captcha_data: dict) -> Optional[dict]:
+        """
+        解决验证码的核心方法
+        :param captcha_data: 从API返回的RiskConf数据
+        :return: 包含randstr和ticket的字典，或None表示失败
+        """
+        ban_id = captcha_data.get('BanId', 0)
+        
+        # 检查BanId是否为2
+        try:
+            ban_id = int(ban_id)
+        except (TypeError, ValueError):
+            ban_id = 0
+        
+        if ban_id != 2:
+            logger.error(f"非预料的BanId: {ban_id}，可能是设备风控或其他原因")
+            return None
+        
+        # 检查CaptchaAId是否支持
+        captcha_a_id = captcha_data.get('CaptchaAId', '')
+        if captcha_a_id != "198420051":
+            logger.error(f"未实现的验证码类型: {captcha_a_id}，当前仅支持198420051")
+            return None
+        
+        try:
+            logger.info("开始进行验证码处理")
+            from Captcha import main
+            # 使用无头模式，避免干扰用户
+            captcha_result = main(tokenid=self.tokenid, captcha_a_id=captcha_a_id, user_agent=self.config.user_agent)
+            logger.debug(f"验证码识别结果: {captcha_result}")
+            # 验证结果格式
+            if not isinstance(captcha_result, dict) or 'code' not in captcha_result:
+                logger.error("验证码识别返回格式错误")
+                return None
+                
+            if captcha_result.get('code') == 0:
+                logger.info(f"验证码识别成功: randstr={captcha_result['randstr']}, ticket={captcha_result['ticket'][:10]}...")
+                return captcha_result
+            
+            elif captcha_result.get('code') == 12:
+                logger.error(f"验证码识别失败: {captcha_result['message']}")
+                return None
+            
+            elif captcha_result.get('code') == 50:
+                logger.error(f"验证码识别失败: {captcha_result['message']}")
+                return None
+            
+            elif captcha_result.get('code') == 666:
+                logger.error(f"验证码识别失败: {captcha_result['message']}")
+                return None
+            
+            else:
+                logger.error(f"未知返回：{captcha_result}")
+                return None
+            
+        except Exception as e:
+            logger.exception(f"验证码处理异常: {e}")
+            return None
+
+    def _make_request_with_captcha(self, url: str, data: dict, method: str = 'POST', max_captcha_attempts: int = 3) -> dict:
+        """
+        带验证码自动处理的请求方法
+        :param url: 请求URL
+        :param data: 请求数据
+        :param method: 请求方法
+        :param max_captcha_attempts: 最大验证码尝试次数
+        :return: 处理后的结果
+        """
+        captcha_attempt = 0
+        original_data = data.copy()  # 保留原始数据用于重试
+        
+        while captcha_attempt <= max_captcha_attempts:
+            # 构造请求数据（每次重试需要重置）
+            request_data = original_data.copy()
+            
+            # 如果是验证码重试，添加验证码参数
+            if captcha_attempt > 0:
+                # request_data.update({
+                #     'sessionKey': str(captcha_data.get('SessionKey', '')),
+                #     'banId': str(captcha_data.get('BanId', '0')),
+                #     'captchaTicket': captcha_solution.get('ticket', ''),
+                #     'captchaRandStr': captcha_solution.get('randstr', '')
+                # })
+                request_data = {
+                    'taskId': original_data.get('taskId', ''),
+                    'sessionKey': str(captcha_data.get('SessionKey', '')),
+                    'banId': str(captcha_data.get('BanId', '0')),
+                    'captchaTicket': captcha_solution.get('ticket', ''),
+                    'captchaRandStr': captcha_solution.get('randstr', ''),
+                    'challenge': '',
+                    'validate': '',
+                    'seccode': '',
+                }
+            
+            # 选择正确的请求方法
+            result = self._make_sdk_request(url, data=request_data, method=method)
+            
+            # 检查是否需要处理验证码
+            if result.get('is_captcha'):
+                if not self.tokenid:
+                    logger.info("未设置tokenid，跳过验证码处理")
+                    return {
+                        'status': 'captcha_failed', 
+                        'reason': '跳过验证码处理',
+                        'captcha_data': '未设置tokenid，跳过验证码处理'
+                    }
+
+                captcha_attempt += 1
+                captcha_data = result['captcha_data']
+                
+                # 尝试解决验证码
+                captcha_solution = self._solve_captcha(captcha_data)
+                if not captcha_solution:
+                    return {
+                        'status': 'captcha_failed', 
+                        'reason': '验证码处理失败',
+                        'captcha_data': captcha_data
+                    }
+                
+                logger.info(f"第{captcha_attempt}次尝试解决验证码...")
+                continue  # 重试请求
+            
+            # 检查最终结果是否仍有验证码（表示验证码验证失败）
+            if result.get('Data', {}).get('RiskConf', {}).get('BanId'):
+                return {
+                    'status': 'captcha_failed',
+                    'reason': '验证码验证失败',
+                    'captcha_data': result['Data']['RiskConf']
+                }
+            
+            # 返回成功结果
+            return result
+        
+        # 验证码尝试次数用尽
+        return {
+            'status': 'captcha_failed',
+            'reason': f'验证码尝试次数超过{max_captcha_attempts}次',
+            'captcha_data': captcha_data
+        }
 
     def check_login(self) -> Optional[str]:
         """检查登录状态"""
@@ -414,10 +577,10 @@ class QidianClient:
         
         # 生成签名
         params = {}
-        params_encrypt = sort_query_string('')
+        params_encrypt = {}
         QDSign = getQDSign(ts, params_encrypt, self.version, self.qid)
         QDInfo = getQDInfo(ts, self.QDInfo)
-        borgus = getborgus(params_encrypt)
+        borgus = getborgus(ts, params_encrypt, self.versioncode, self.qid)
         
         # 设置请求头
         headers = self.headers_qd.copy()
@@ -500,15 +663,19 @@ class QidianClient:
             'SessionKey': '',
         }
         
-        result = self._make_sdk_request(url, data=data, method='POST')
-        
-        if result.get('is_captcha'):
-            return {'status': 'captcha', 'captcha_data': result['captcha_data']}
-        
-        if result.get('Result') in (0, "0"):
+        result = self._make_request_with_captcha(url, data, method='POST')
+
+        # 处理特殊结果
+        if isinstance(result, dict) and result.get('status') == 'captcha_failed':
+            return result
+
+        # 检查是否是成功的API响应
+        if isinstance(result, dict) and result.get('Result') in (0, "0"):
             return {'status': 'success'}
-        
-        raise QidianError(f"激励任务执行失败: {result}")
+
+        # 处理其他可能的错误情况
+        logger.error(f"激励任务执行失败: {result}")
+        return {'status': 'failed', 'raw_response': result}
 
     def advjob(self) -> dict:
         """执行激励碎片任务"""
@@ -527,12 +694,15 @@ class QidianClient:
                 if task['IsFinished'] == 0:
                     logger.info(f"正在执行第{i+1}个任务")
                     result = self.do_adv_job(task['TaskId'])
-                    
+
                     if result.get('status') == 'success':
                         time.sleep(random.randint(1, 2))
                     elif result.get('status') == 'captcha':
-                        logger.warning("遇到验证码")
-                        return result  # 直接返回验证码信息
+                        logger.warning("遇到验证码，需要处理")
+                        return result
+                    elif result.get('status') == 'captcha_failed':
+                        logger.error(f"验证码处理失败: {result.get('reason')}")
+                        return result  # 返回详细失败原因
                     else:
                         logger.error("执行激励任务失败")
                         return {'status': 'failed'}
@@ -558,10 +728,10 @@ class QidianClient:
         try:
             # 获取任务列表
             result = self.get_adv_job()
-            task_list = result['Data']['VideoRewardTab']['TaskList']
+            task_list = result['Data']['CountdownBenefitModule']['TaskList']
             
             for task in task_list:
-                if task['Title'] == "完成3个广告任务得奖励":
+                if task['Title'] == "额外看3次小视频得奖励":
                     if task['IsReceived'] == 1:
                         logger.info("额外章节卡任务已完成")
                         return {'status': 'success'}
@@ -580,10 +750,10 @@ class QidianClient:
                 
             # 检查任务状态
             check_result = self.get_adv_job()
-            check_task_list = check_result['Data']['VideoRewardTab']['TaskList']
+            check_task_list = check_result['Data']['CountdownBenefitModule']['TaskList']
             
             for task in check_task_list:
-                if task['Title'] == "完成3个广告任务得奖励":
+                if task['Title'] == "额外看3次小视频得奖励":
                     if task['IsReceived'] == 1:
                         logger.info("额外章节卡任务完成")
                         return {'status': 'success'}
@@ -628,9 +798,13 @@ class QidianClient:
                 }
                 
                 video_result = self._make_sdk_request(url_video, data=data_video, method='POST')
-                
+
+                # 明确处理可能的验证码情况（虽然理论上不应该发生）
                 if video_result.get('is_captcha'):
-                    return {'status': 'captcha', 'captcha_data': video_result['captcha_data']}
+                    # 记录警告但不中断任务
+                    logger.warning("抽奖任务中意外遇到验证码，可能是API变更")
+                    # 可以选择尝试解决或直接失败
+                    return {'status': 'failed', 'reason': '意外验证码'}
                 
                 if video_result.get('Result') in (0, "0"):
                     logger.info(f"观看第{i+1}次视频成功")
@@ -704,11 +878,25 @@ class TaskProcessor:
                 if isinstance(result, dict):
                     status = result.get('status')
                     if status == 'success':
-                        logger.info(f"任务[{task_name}]执行完成: 成功")
+                        logger.info(f"任务[`task_name`]执行完成: 成功")
                         self.task_results[task_name] = result
                         break
+                    elif status == 'captcha_failed':
+                        # 明确区分验证码失败和其他错误
+                        reason = result.get('reason', '未知原因')
+                        captcha_data = result.get('captcha_data', {})
+                        logger.error(f"任务[`task_name`]因验证码失败: {reason}")
+                        logger.debug(f"验证码数据: {json.dumps(captcha_data, ensure_ascii=False)}")
+                        
+                        # 保存详细错误信息用于推送
+                        self.task_results[task_name] = {
+                            'status': 'captcha_failed',
+                            'reason': reason,
+                            'captcha_data': captcha_data
+                        }
+                        break
                     elif status == 'captcha':
-                        logger.warning(f"任务[{task_name}]因验证码中断")
+                        logger.warning(f"任务[`task_name`]因验证码中断")
                         self.task_results[task_name] = result
                         break
                     else:
@@ -778,12 +966,6 @@ class MainApp:
             return False
 
         return True
-    
-    def handle_captcha(self, user: UserConfig, captcha_data: dict) -> None:
-        """验证码处理钩子（预留）"""
-        logger.warning(f"用户[{user.username}] 触发验证码拦截")
-        logger.info(f"验证码参数: {json.dumps(captcha_data, ensure_ascii=False)}")
-        # TODO: 后续在此实现验证码处理逻辑
 
     def run(self) -> None:
         """运行程序"""
@@ -807,13 +989,15 @@ class MainApp:
         # 继续执行主流程
         for user in self.config_manager.users:
             logger.info(f"开始处理用户: {user.username}")
+
             try:
                 # 初始化客户端
                 client = QidianClient(user)
                 if not client.init():
                     logger.error(f"用户: {user.username} 初始化失败")
                     continue
-                
+
+                logger.info(f"开始检查用户[{user.username}]登录状态")
                 # 检查登录状态
                 nickname = client.check_login()
                 if not nickname:
@@ -854,6 +1038,7 @@ class MainApp:
         success_count = 0
         total_count = len(results)
         has_captcha = False
+        captcha_reason = ""
 
         for task_name, result in results.items():
             if isinstance(result, dict):
@@ -863,6 +1048,10 @@ class MainApp:
                 elif status == 'captcha':
                     emoji = '⚠️'
                     has_captcha = True
+                elif status == 'captcha_failed':
+                    emoji = '❌'
+                    has_captcha = True
+                    captcha_reason = result.get('reason', '未知原因')
                 else:
                     emoji = '❌'
                 msg += f"{task_name}: {emoji}\n"
@@ -872,7 +1061,10 @@ class MainApp:
                 msg += f"{task_name}: ❌\n"
 
         if has_captcha:
-            msg += "\n⚠️ 注意：任务因遇到验证码被中断，后续任务未执行\n      手动执行一次任务后可解除风控"
+            msg += "\n⚠️ 任务因遇到验证码被中断，后续任务未执行\n"
+            if captcha_reason:
+                msg += f"   错误原因: {captcha_reason}\n"
+            msg += "   手动执行一次任务后可解除风控"
 
         title = f"任务完成报告 - {success_count}/{total_count}"
         
