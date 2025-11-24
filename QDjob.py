@@ -637,10 +637,12 @@ class QidianClient:
 
     def get_adv_job(self) -> Dict[str, Any]:
         """获取激励任务列表"""
-        url = "https://h5.if.qidian.com/argus/api/v1/video/adv/mainPage"
+        # url = "https://h5.if.qidian.com/argus/api/v1/video/adv/mainPage"
+        url = "https://h5.if.qidian.com/argus/api/v2/video/adv/mainPage"
         result = self._make_sdk_request(url,method='GET')
 
-        if not result.get('Data') or not result['Data'].get('VideoBenefitModule'):
+        # if not result.get('Data') or not result['Data'].get('VideoBenefitModule'):
+        if not result.get('Data') or not result['Data'].get('DailyBenefitModule'):
             raise QidianError("获取激励任务列表失败")
             
         return result
@@ -682,7 +684,8 @@ class QidianClient:
         try:
             # 获取任务列表
             result = self.get_adv_job()
-            task_list = result['Data']['VideoBenefitModule']['TaskList']
+            # task_list = result['Data']['VideoBenefitModule']['TaskList']
+            task_list = result['Data']['DailyBenefitModule']['TaskList']
             
             # 如果所有任务已完成
             if task_list[-1]['IsFinished'] == 1:
@@ -709,7 +712,7 @@ class QidianClient:
             
             # 验证任务是否全部完成
             check_result = self.get_adv_job()
-            check_task_list = check_result['Data']['VideoBenefitModule']['TaskList']
+            check_task_list = check_result['Data']['DailyBenefitModule']['TaskList']
             all_finished = all(task["IsFinished"] for task in check_task_list)
             
             if all_finished:
@@ -728,7 +731,8 @@ class QidianClient:
         try:
             # 获取任务列表
             result = self.get_adv_job()
-            task_list = result['Data']['CountdownBenefitModule']['TaskList']
+            # task_list = result['Data']['CountdownBenefitModule']['TaskList']
+            task_list = result['Data']['VideoRewardTab']['TaskList']
             
             for task in task_list:
                 if task['Title'] == "额外看3次小视频得奖励":
@@ -750,7 +754,7 @@ class QidianClient:
                 
             # 检查任务状态
             check_result = self.get_adv_job()
-            check_task_list = check_result['Data']['CountdownBenefitModule']['TaskList']
+            check_task_list = check_result['Data']['VideoRewardTab']['TaskList']
             
             for task in check_task_list:
                 if task['Title'] == "额外看3次小视频得奖励":
@@ -765,6 +769,138 @@ class QidianClient:
             
         except Exception as e:
             logger.error(f"额外章节卡任务异常: {e}")
+            return {'status': 'error', 'error': str(e)}
+        
+    def do_game(self) -> dict:
+        """执行游戏中心任务"""
+        def generate_trackid():
+            """
+            生成符合JavaScript代码逻辑的trackId
+            格式：8-4-4-4-12的十六进制字符串，如: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+            """
+            template = "xxxxxxxx-xxxxxxxx-xxxxxxxx-xxxxxxxx"
+            hex_chars = "0123456789abcdef"  # 小写十六进制字符集
+            return ''.join(
+                random.choice(hex_chars) if c == 'x' else c 
+                for c in template
+            )
+        
+        headers = {
+            'User-Agent': self.config.user_agent,
+            'Accept': 'application/json, text/plain, */*',
+            'Origin': 'https://qdgame.qidian.com',
+            'X-Requested-With': 'com.qidian.QDReader',
+            'Sec-Fetch-Site': 'same-site',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Dest': 'empty',
+            'Referer': 'https://qdgame.qidian.com/',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+        }
+
+        try: 
+            # 获取任务列表
+            result = self.get_adv_job()
+            task_list = result['Data']['MoreRewardTab']['TaskList']
+            game_url = ''
+            for task in task_list:
+                if task['Title'] == "当日玩游戏10分钟":
+                    is_finished = task['IsFinished']
+                    is_received = task['IsReceived']
+                    game_url = task['ActionUrl']
+                    taskid = task['TaskId']
+                    remaining_time = int(task['Total'])-int(task['Process'])
+                    if is_finished == 1 and is_received == 1:
+                        logger.info("游戏中心任务已完成")
+                        return {'status': 'success'}
+                    elif (is_finished == 1 and is_received == 0) or (remaining_time <= 0):
+                        logger.info("游戏中心任务已完成，奖励未领取")
+                        logger.info("开始领取游戏中心任务奖励")
+                        result = self.do_adv_job(taskid)
+                        if result.get('status') == 'success':
+                            logger.info("游戏任务领取成功")
+                            return {'status': 'success'}
+                        else:
+                            logger.error("游戏中心任务领取失败")
+                            return {'status': 'error', 'error': '未知异常'}
+                    else:
+                        logger.info("游戏中心任务未完成，开始执行游戏中心任务")
+            if not game_url or not taskid: 
+                logger.error("游戏中心任务未找到")
+                return {'status': 'failed', 'code': 10086}
+            match = re.search(r'partnerid=(\d+)', game_url)
+            if not match:
+                logger.error("游戏中心任务URL错误")
+                return {'status': 'failed', 'code': 10086}
+            partnerid = match.group(1)
+            game_id = 201796
+            game_url = f"https://qdgame.qidian.com/game/{game_id}?partnerid={partnerid}"
+            logger.info(f"游戏中心任务URL: {game_url}")
+            url_track = 'https://lygame.qidian.com/home/statistic/track'
+            params_get_PHPSESSID = {
+                'action': 'gameball_impression',
+                'positionType': '0',
+                'gameId': '0',
+                'url': game_url,
+                'origin': 'https://qdgame.qidian.com',
+                # '_t': '0.05669065654385208',
+                'platformId': '1',
+            }
+            response_PHPSESSID = self.session.get(url_track, params=params_get_PHPSESSID, headers=headers, cookies=self.config.cookies)
+            logger.debug(f"response_PHPSESSID: {response_PHPSESSID.text}")
+            if not response_PHPSESSID.status_code == 200: 
+                logger.error("获取进程ID失败")
+                return {'status': 'failed', 'code': 10086}
+            res = response_PHPSESSID.json()
+            if res.get('code') != 0 or not res.get('msg'):
+                logger.error("获取进程ID失败")
+                return {'status': 'failed', 'code': 10086}
+            PHESSID = response_PHPSESSID.cookies.get('PHESSID')
+            logger.debug(f"PHESSID: {PHESSID}")
+            cookies = self.config.cookies.copy()
+            trackid = generate_trackid()
+            cookies['PHESSID'] = PHESSID
+            cookies['trackid'] = trackid
+            def heartbeat(game_id: int, full_time: int=690):
+                run_time = 0
+                url_heartbeat = "https://lygame.qidian.com/home/log/heartbeat"
+                params_heartbeat = {
+                    'gameId': str(game_id),
+                    'platformId': '1',
+                }
+                while run_time < full_time:
+                    response_heartbeat = self.session.get(url_heartbeat, params=params_heartbeat, cookies=cookies, headers=headers)
+                    res = response_heartbeat.json()
+                    if not res.get('code') == 0 or not res.get('data'):
+                        logger.error("心跳失败")
+                        return {'status': 'failed', 'code': 10086}
+                    next_time = int(res.get('data'))
+                    logger.info(f"心跳成功，下一次心跳间隔: {next_time}")
+                    run_time += next_time
+                    time.sleep(next_time)
+            heartbeat(game_id,(remaining_time+1)*60) # 多加一分钟，避免游戏时间不足
+            logger.info("游戏中心任务结束，开始获取奖励")
+            task_result = self.do_adv_job(taskid)
+            if task_result.get('status') == 'success':
+                logger.info("检查完成情况")
+                result = self.get_adv_job()
+                task_list = result['Data']['MoreRewardTab']['TaskList']
+                for task in task_list:
+                    if task['Title'] == "当日玩游戏10分钟":
+                        is_received = task['IsReceived']
+                        if is_received == 1:
+                            logger.info("游戏中心任务已完成")
+                            return {'status': 'success'}
+                        else:
+                            logger.error("游戏中心任务未完成")
+                            return {'status': 'failed', 'code': 10086}
+            elif task_result.get('status') == 'captcha':
+                logger.warning("遇到验证码")
+                return task_result
+            else:
+                logger.error("执行游戏中心任务失败")
+                return {'status': 'failed', 'code': 10086}
+        except Exception as e:
+            logger.error(f"执行游戏中心任务异常: {e}")
             return {'status': 'error', 'error': str(e)}
 
     def lottery(self) -> dict:
@@ -899,6 +1035,10 @@ class TaskProcessor:
                         logger.warning(f"任务[`task_name`]因验证码中断")
                         self.task_results[task_name] = result
                         break
+                    elif status == 'failed':
+                        logger.error(f"任务[`task_name`]执行失败: {result.get('reason', '未知原因')}")
+                        self.task_results[task_name] = result
+                        break
                     else:
                         if attempt < self.retry_attempts:
                             logger.warning(f"任务[{task_name}]第{attempt}次执行失败，正在重试...")
@@ -929,6 +1069,7 @@ class TaskProcessor:
             ('签到任务', self.client.qdsign),
             ('激励碎片任务', self.client.advjob),
             ('章节卡任务', self.client.exadvjob),
+            ('游戏中心任务', self.client.do_game),
             ('每日抽奖任务', self.client.lottery)
             # ('其他任务', self.other_task_func),
             # 添加其他任务...
