@@ -2,17 +2,15 @@
 import os
 import json
 import requests
-import time, sys
+import time
 import random
-import re, psutil
+import re
 from urllib.parse import urlencode
 from typing import Dict, List, Optional, Any, Callable
-from enctrypt_qidian import getQDInfo, getQDSign, getSDKSign, sort_query_string, getborgus, getibex
+from enctrypt_qidian import getQDInfo, getQDSign, getSDKSign, getborgus, getibex
 from push import PushService, FeiShu, ServerChan, QiweiPush
 from logger import LoggerManager
 from logger import DEFAULT_LOG_RETENTION
-
-import hashlib
 
 
 # 配置常量
@@ -735,7 +733,7 @@ class QidianClient:
             task_list = result['Data']['VideoRewardTab']['TaskList']
             
             for task in task_list:
-                if task['Title'] == "额外看3次小视频得奖励":
+                if task['Title'] == "完成3个广告任务得奖励":
                     if task['IsReceived'] == 1:
                         logger.info("额外章节卡任务已完成")
                         return {'status': 'success'}
@@ -757,7 +755,7 @@ class QidianClient:
             check_task_list = check_result['Data']['VideoRewardTab']['TaskList']
             
             for task in check_task_list:
-                if task['Title'] == "额外看3次小视频得奖励":
+                if task['Title'] == "完成3个广告任务得奖励":
                     if task['IsReceived'] == 1:
                         logger.info("额外章节卡任务完成")
                         return {'status': 'success'}
@@ -765,7 +763,8 @@ class QidianClient:
                     logger.error("额外章节卡任务未完成")
                     return {'status': 'failed', 'code': 10086}
                     
-            return {'status': 'success'}
+            logger.error("未找到额外章节卡任务")
+            return {'status': 'error'}
             
         except Exception as e:
             logger.error(f"额外章节卡任务异常: {e}")
@@ -809,7 +808,7 @@ class QidianClient:
                     game_url = task['ActionUrl']
                     taskid = task['TaskId']
                     remaining_time = int(task['Total'])-int(task['Process'])
-                    if is_finished == 1 and is_received == 1:
+                    if is_received == 1:
                         logger.info("游戏中心任务已完成")
                         return {'status': 'success'}
                     elif (is_finished == 1 and is_received == 0) or (remaining_time <= 0):
@@ -1014,14 +1013,14 @@ class TaskProcessor:
                 if isinstance(result, dict):
                     status = result.get('status')
                     if status == 'success':
-                        logger.info(f"任务[`task_name`]执行完成: 成功")
+                        logger.info(f"任务[{task_name}]执行完成: 成功")
                         self.task_results[task_name] = result
                         break
                     elif status == 'captcha_failed':
                         # 明确区分验证码失败和其他错误
                         reason = result.get('reason', '未知原因')
                         captcha_data = result.get('captcha_data', {})
-                        logger.error(f"任务[`task_name`]因验证码失败: {reason}")
+                        logger.error(f"任务[{task_name}]因验证码失败: {reason}")
                         logger.debug(f"验证码数据: {json.dumps(captcha_data, ensure_ascii=False)}")
                         
                         # 保存详细错误信息用于推送
@@ -1032,11 +1031,11 @@ class TaskProcessor:
                         }
                         break
                     elif status == 'captcha':
-                        logger.warning(f"任务[`task_name`]因验证码中断")
+                        logger.warning(f"任务[{task_name}]因验证码中断")
                         self.task_results[task_name] = result
                         break
                     elif status == 'failed':
-                        logger.error(f"任务[`task_name`]执行失败: {result.get('reason', '未知原因')}")
+                        logger.error(f"任务[{task_name}]执行失败: {result.get('reason', '未知原因')}")
                         self.task_results[task_name] = result
                         break
                     else:
