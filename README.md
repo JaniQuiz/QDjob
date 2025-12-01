@@ -41,8 +41,9 @@
 ```
 
 ## 使用方法
-[使用方法](https://github.com/JaniQuiz/QDjob/blob/main/usage.md)
-获取tokenid: 请加入下方的telegram群组获取
+[使用方法](https://github.com/JaniQuiz/QDjob/blob/main/usage.md)  
+获取tokenid: [我的网站](https://shop.janiquiz.dpdns.org)  
+售后问题请进入下方的TG群组
 
 ### 配置日常运行  
 请在完成了上面的配置后，按照以下步骤实现每日自动托管运行。
@@ -68,6 +69,7 @@
 ## 叠甲
     本项目为个人项目，仅供学习交流使用，请勿用于非法用途，请于下载后24小时内删除。
     如有侵权，请联系删除。
+
 
 
 
