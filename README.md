@@ -65,11 +65,13 @@
 如果你喜欢本项目，可以[请作者吃个鸡腿](https://afdian.com/a/janiquiz)
 
 ## Contact
-[点此加入Telegram群组](https://t.me/+6xMW_7YK0o1jMDE1)
+[点此加入Telegram群组](https://t.me/+6xMW_7YK0o1jMDE1)  
+联系邮箱：janiquiz@163.com
 
 ## 叠甲
     本项目为个人项目，仅供学习交流使用，请勿用于非法用途，请于下载后24小时内删除。
     如有侵权，请联系删除。
+
 
 
 
