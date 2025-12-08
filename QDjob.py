@@ -5,9 +5,8 @@ import requests
 import time
 import random
 import re
-from urllib.parse import urlencode
 from typing import Dict, List, Optional, Any, Callable
-from enctrypt_qidian import getQDInfo, getQDSign, getSDKSign, getborgus, getibex
+from enctrypt_qidian import getQDSign, getSDKSign, getborgus, getuserid_from_QDInfo, getQDInfo_byQDInfo, getibex_byibex
 from push import PushService, FeiShu, ServerChan, QiweiPush
 from logger import LoggerManager
 from logger import DEFAULT_LOG_RETENTION
@@ -322,6 +321,8 @@ class QidianClient:
         self.qid = self.config.cookies.get('qid', '')
         logger.debug(f'qid：{self.qid}')
         self.QDInfo = self.config.cookies.get('QDInfo', '')
+        self.userid = getuserid_from_QDInfo(self.QDInfo)
+        logger.debug(f'userid：{self.userid}')
         return True
     
     def _handle_response(self, response: requests.Response, 
@@ -362,8 +363,8 @@ class QidianClient:
         
         data_encrypt = data.copy() if data else params.copy()
 
-        QDSign = getQDSign(ts, data_encrypt, self.version, self.qid)
-        QDInfo = getQDInfo(ts, self.QDInfo)
+        QDSign = getQDSign(ts, data_encrypt, self.version, self.qid, userid=self.userid)
+        QDInfo = getQDInfo_byQDInfo(ts, self.QDInfo)
         borgus = getborgus(ts, data_encrypt, self.versioncode, self.qid)
         
         # 更新headers
@@ -397,10 +398,10 @@ class QidianClient:
         
         data_encrypt = data.copy() if data else params.copy()
         
-        SDKSign = getSDKSign(ts, data_encrypt, self.version, self.qid)
-        QDInfo = getQDInfo(ts, self.QDInfo)
+        SDKSign = getSDKSign(ts, data_encrypt, self.version, self.qid, userid=self.userid)
+        QDInfo = getQDInfo_byQDInfo(ts, self.QDInfo)
         borgus = getborgus(ts, data_encrypt, self.versioncode, self.qid)
-        ibex = getibex(ts, self.ibex)
+        ibex = getibex_byibex(ts, self.ibex)
         
         # 更新headers
         headers = self.headers_sdk.copy()
@@ -576,8 +577,8 @@ class QidianClient:
         # 生成签名
         params = {}
         params_encrypt = {}
-        QDSign = getQDSign(ts, params_encrypt, self.version, self.qid)
-        QDInfo = getQDInfo(ts, self.QDInfo)
+        QDSign = getQDSign(ts, params_encrypt, self.version, self.qid, userid=self.userid)
+        QDInfo = getQDInfo_byQDInfo(ts, self.QDInfo)
         borgus = getborgus(ts, params_encrypt, self.versioncode, self.qid)
         
         # 设置请求头
@@ -1034,10 +1035,10 @@ class TaskProcessor:
                         logger.warning(f"任务[{task_name}]因验证码中断")
                         self.task_results[task_name] = result
                         break
-                    elif status == 'failed':
-                        logger.error(f"任务[{task_name}]执行失败: {result.get('reason', '未知原因')}")
-                        self.task_results[task_name] = result
-                        break
+                    # elif status == 'failed':
+                    #     logger.error(f"任务[{task_name}]执行失败: {result.get('reason', '未知原因')}")
+                    #     self.task_results[task_name] = result
+                    #     break
                     else:
                         if attempt < self.retry_attempts:
                             logger.warning(f"任务[{task_name}]第{attempt}次执行失败，正在重试...")
