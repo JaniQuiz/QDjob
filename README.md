@@ -43,7 +43,7 @@
 ## 使用方法
 [使用方法](https://github.com/JaniQuiz/QDjob/blob/main/usage.md)  
  * 程序本体**免费使用**，仅过验证码功能需要获取tokenid  
- * 如何获取tokenid: [我的网站](https://shop.janiquiz.dpdns.org)  
+ * 如何获取tokenid: [我的网站](https://shop.janiquiz.dpdns.org)  或者 [我的咸鱼主页](https://m.tb.cn/h.7YjEhOz?tk=2VRJfsPwg93)
  * 售后问题请进入下方的TG群组或者邮箱联系
 
 ### 配置日常运行  
@@ -71,6 +71,7 @@
 ## 叠甲
     本项目为个人项目，仅供学习交流使用，请勿用于非法用途，请于下载后24小时内删除。
     如有侵权，请联系删除。
+
 
 
 
