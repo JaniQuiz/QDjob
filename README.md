@@ -67,7 +67,7 @@
 ## 赞助
 如果你喜欢本项目，可以赞助支持：
 <div style="display: flex; justify-content: center; gap: 20px;">
-  <img src="./picture/vx.jpg" alt="微信赞助" style="width: 300px; height: auto;" />
+  <img src="./picture/vx.png" alt="微信赞助" style="width: 300px; height: auto;" />
   <img src="./picture/zfb.jpg" alt="支付宝赞助" style="width: 300px; height: auto;" />
 </div>
 
@@ -78,6 +78,7 @@
 ## 叠甲
     本项目为个人项目，仅供学习交流使用，请勿用于非法用途，请于下载后24小时内删除。
     如有侵权，请联系删除。
+
 
 
 
