@@ -4,7 +4,7 @@ import os, re
 import json
 import time
 import webbrowser, threading
-from Login import QDLogin_PhoneCode, QDLogin_Password, get_random_phone
+from Login import QDLogin_PhoneCode, QDLogin_Password, get_random_phone, check_login_status, check_login_risk
 
 import sys
 import os
@@ -251,6 +251,12 @@ class ConfigEditor:
                 command=self.edit_user).pack(fill="x", pady=2)
         ttk.Button(btn_frame, text="删除用户", style="Accent.TButton",
                 command=self.remove_user).pack(fill="x", pady=2)
+        
+        ttk.Button(btn_frame, text="检测登录状态", style="Accent.TButton",
+            command=self.check_login_status_for_selected_user).pack(fill="x", pady=2)
+        
+        ttk.Button(btn_frame, text="检测风险状态", style="Accent.TButton",
+            command=self.check_login_risk_for_selected_user).pack(fill="x", pady=2)
 
         # 初始化用户列表显示
         self.refresh_user_list()
@@ -353,6 +359,121 @@ class ConfigEditor:
                 cookies_status,
                 token_status  # 新增Token状态
             ))
+
+    def check_login_status_for_selected_user(self):
+        """检测选中用户的登录状态"""
+        selected = self.user_list.selection()
+        if not selected:
+            messagebox.showwarning("警告", "请先选择一个用户")
+            return
+        
+        index = self.user_list.index(selected[0])
+        user = self.users_data[index]
+        username = user["username"]
+        
+        # 检查cookies状态
+        cookies_file = user.get("cookies_file", "")
+        if not cookies_file or not os.path.exists(cookies_file):
+            messagebox.showwarning("警告", f"用户 '{username}' 的cookies未配置")
+            return
+        
+        # 获取cookies
+        try:
+            with open(cookies_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # 检查内容是否为空
+            if not content.strip():
+                messagebox.showwarning("警告", f"用户 '{username}' 的cookies文件为空")
+                return
+            
+            cookies = json.loads(content)
+        except json.JSONDecodeError as e:
+            messagebox.showerror("错误", f"cookies文件格式错误: {str(e)}")
+            return
+        except Exception as e:
+            messagebox.showerror("错误", f"无法读取cookies文件: {str(e)}")
+            return
+        
+        # 获取user_agent
+        user_agent = user.get("user_agent", "")
+        if not user_agent:
+            # 使用config.json中的默认UA
+            user_agent = self.config_data["default_user_agent"]
+            if not user_agent:
+                # 如果config.json中也没有配置，默认使用一个基本格式
+                user_agent = "Mozilla/5.0 (Linux; Android 13; PDEM10 Build/TP1A.220905.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/109.0.5414.86 MQQBrowser/6.2 TBS/047601 Mobile Safari/537.36 QDJSSDK/1.0 QDNightStyle_1 QDReaderAndroid/7.9.384/1466/1000032/OPPO/QDShowNativeLoading"
+        
+        # 调用check_login_status函数
+        try:
+            is_logged_in = check_login_status(user_agent, cookies)
+            if is_logged_in:
+                messagebox.showinfo("登录状态", f"用户 '{username}' 已登录✅", icon='info')
+            else:
+                messagebox.showwarning("登录状态", f"用户 '{username}' 未登录或登录已过期⚠️", icon='warning')
+        except Exception as e:
+            messagebox.showerror("错误", f"检测登录状态时出错: {str(e)}", icon='error')
+
+    def check_login_risk_for_selected_user(self):
+        """检测选中用户的登录风险状态"""
+        selected = self.user_list.selection()
+        if not selected:
+            messagebox.showwarning("警告", "请先选择一个用户")
+            return
+        
+        index = self.user_list.index(selected[0])
+        user = self.users_data[index]
+        username = user["username"]
+        
+        # 检查cookies状态
+        cookies_file = user.get("cookies_file", "")
+        if not cookies_file or not os.path.exists(cookies_file):
+            messagebox.showwarning("警告", f"用户 '{username}' 的cookies未配置")
+            return
+        
+        # 获取cookies
+        try:
+            with open(cookies_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # 检查内容是否为空
+            if not content.strip():
+                messagebox.showwarning("警告", f"用户 '{username}' 的cookies文件为空")
+                return
+            
+            cookies = json.loads(content)
+        except json.JSONDecodeError as e:
+            messagebox.showerror("错误", f"cookies文件格式错误: {str(e)}")
+            return
+        except Exception as e:
+            messagebox.showerror("错误", f"无法读取cookies文件: {str(e)}")
+            return
+        
+        # 获取user_agent
+        user_agent = user.get("user_agent", "")
+        if not user_agent:
+            # 使用config.json中的默认UA
+            user_agent = self.config_data["default_user_agent"]
+            if not user_agent:
+                # 如果config.json中也没有配置，默认使用一个基本格式
+                user_agent = "Mozilla/5.0 (Linux; Android 13; PDEM10 Build/TP1A.220905.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/109.0.5414.86 MQQBrowser/6.2 TBS/047601 Mobile Safari/537.36 QDJSSDK/1.0 QDNightStyle_1 QDReaderAndroid/7.9.384/1466/1000032/OPPO/QDShowNativeLoading"
+        
+        ibex = user.get("ibex", "")
+        if not ibex:
+            messagebox.showwarning("警告", f"用户 '{username}' 的ibex未配置")
+            return
+
+        # 调用check_login_status函数
+        try:
+            is_logged_in = check_login_risk(user_agent, cookies, ibex)
+            if is_logged_in==True:
+                messagebox.showinfo("风险状态", f"用户 '{username}' 无风险情况", icon='info')
+            elif is_logged_in==False:
+                messagebox.showwarning("风险状态", f"用户 '{username}' 获取风险情况失败", icon='warning')
+            else:
+                messagebox.showwarning("风险状态", f"用户 '{username}' 有风险情况⚠️\n {str(is_logged_in)}", icon='warning')
+        except Exception as e:
+            messagebox.showerror("错误", f"检测风险状态时出错: {str(e)}", icon='error')
 
     def validate_username(self, username):
         """验证用户名是否符合格式要求"""
@@ -610,7 +731,7 @@ class ConfigEditor:
             
             # 更新User Agent和ibex显示
             ua_var.set(self.login_instance.user_agent)
-            ibex_var.set(self.login_instance.gener_ibex(str(int(time.time() * 1000))))
+            ibex_var.set(self.login_instance.gener_ibex_over(str(int(time.time() * 1000))))
             
             self.status_label.config(text="登录成功", foreground="green")
         
@@ -943,7 +1064,7 @@ class ConfigEditor:
                         
                         # 更新User Agent和ibex显示
                         ua_var.set(self.login_instance.user_agent)
-                        ibex_var.set(self.login_instance.gener_ibex(str(int(time.time() * 1000))))
+                        ibex_var.set(self.login_instance.gener_ibex_over(str(int(time.time() * 1000))))
                         
                         self.status_label.config(text="登录成功", foreground="green")
                     
@@ -1152,13 +1273,13 @@ class ConfigEditor:
                 cookies_text.config(state="normal")
                 cookies_text.delete("1.0", "end")
                 cookies_text.insert("1.0", json.dumps(cookies_data, indent=2, ensure_ascii=False))
-                cookies_text.config(state="disabled")
+                # cookies_text.config(state="disabled")
             else:
                 # 使用默认模板
                 cookies_text.config(state="normal")
                 cookies_text.delete("1.0", "end")
                 cookies_text.insert("1.0", json.dumps(self.__class__.DEFAULT_COOKIES_TEMPLATE, indent=2, ensure_ascii=False))
-                cookies_text.config(state="disabled")
+                # cookies_text.config(state="disabled")
             
             # 加载UA和ibex
             user = next((u for u in self.users_data if u["username"] == username), None)

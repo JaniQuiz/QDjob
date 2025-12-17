@@ -58,6 +58,11 @@ class ConfigManager:
     
     def _init_users(self) -> List[UserConfig]:
         """初始化用户配置"""
+        # 添加用户数量限制检查
+        if len(self.config['users']) > 3:
+            logger.error("❌ 用户数量超过最大限制3个，请调整配置文件")
+            raise ValueError("用户数量超过最大限制3个")
+        
         users = []
         for user_data in self.config['users']:
             if not self._validate_user_config(user_data):
@@ -129,6 +134,11 @@ class ConfigManager:
 
     def _validate_config(self):
         """全局配置校验"""
+        # 最大用户数量限制说明
+        if 'users' in self.config:
+            if len(self.config['users']) > 3:
+                logger.warning("⚠️ 注意：用户数量超过3个时将被拒绝加载")
+
         # 校验日志级别
         if 'log_level' in self.config:
             valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
@@ -802,8 +812,32 @@ class QidianClient:
             result = self.get_adv_job()
             task_list = result['Data']['MoreRewardTab']['TaskList']
             game_url = ''
+            type_gamejob = 0
             for task in task_list:
                 if task['Title'] == "当日玩游戏10分钟":
+                    type_gamejob = 1
+                    is_finished = task['IsFinished']
+                    is_received = task['IsReceived']
+                    game_url = task['ActionUrl']
+                    taskid = task['TaskId']
+                    remaining_time = int(task['Total'])-int(task['Process'])
+                    if is_received == 1:
+                        logger.info("游戏中心任务已完成")
+                        return {'status': 'success'}
+                    elif (is_finished == 1 and is_received == 0) or (remaining_time <= 0):
+                        logger.info("游戏中心任务已完成，奖励未领取")
+                        logger.info("开始领取游戏中心任务奖励")
+                        result = self.do_adv_job(taskid)
+                        if result.get('status') == 'success':
+                            logger.info("游戏任务领取成功")
+                            return {'status': 'success'}
+                        else:
+                            logger.error("游戏中心任务领取失败")
+                            return {'status': 'error', 'error': '未知异常'}
+                    else:
+                        logger.info("游戏中心任务未完成，开始执行游戏中心任务")
+                if re.fullmatch(r"首次玩.*10分钟", task['Title']):
+                    type_gamejob = 2
                     is_finished = task['IsFinished']
                     is_received = task['IsReceived']
                     game_url = task['ActionUrl']
@@ -827,12 +861,24 @@ class QidianClient:
             if not game_url or not taskid: 
                 logger.error("游戏中心任务未找到")
                 return {'status': 'failed', 'code': 10086}
-            match = re.search(r'partnerid=(\d+)', game_url)
-            if not match:
-                logger.error("游戏中心任务URL错误")
-                return {'status': 'failed', 'code': 10086}
-            partnerid = match.group(1)
-            game_id = 201796
+            if type_gamejob == 1:
+                match = re.search(r'partnerid=(\d+)', game_url)
+                if not match:
+                    logger.error("游戏中心任务URL错误")
+                    return {'status': 'failed', 'code': 10086}
+                game_id = 201796
+                partnerid = match.group(1)
+            elif type_gamejob == 2:
+                match = re.search(r'/game/(\d+).*?partnerid=(\d+)', game_url)
+                if not match:
+                    logger.error("游戏中心任务URL错误")
+                    return {'status': 'failed', 'code': 10086}
+                game_id = match.group(1)
+                partnerid = match.group(2)
+                
+            else:
+                logger.error(f"游戏中心任务类型异常: {type_gamejob}")
+                return {'status': 'error', 'error': '游戏中心任务类型异常'}
             game_url = f"https://qdgame.qidian.com/game/{game_id}?partnerid={partnerid}"
             logger.info(f"游戏中心任务URL: {game_url}")
             url_track = 'https://lygame.qidian.com/home/statistic/track'
@@ -886,6 +932,14 @@ class QidianClient:
                 task_list = result['Data']['MoreRewardTab']['TaskList']
                 for task in task_list:
                     if task['Title'] == "当日玩游戏10分钟":
+                        is_received = task['IsReceived']
+                        if is_received == 1:
+                            logger.info("游戏中心任务已完成")
+                            return {'status': 'success'}
+                        else:
+                            logger.error("游戏中心任务未完成")
+                            return {'status': 'failed', 'code': 10086}
+                    if re.fullmatch(r"首次玩.*10分钟", task['Title']):
                         is_received = task['IsReceived']
                         if is_received == 1:
                             logger.info("游戏中心任务已完成")
