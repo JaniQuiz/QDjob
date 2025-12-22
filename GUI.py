@@ -4,10 +4,20 @@ import os, re
 import json
 import time
 import webbrowser, threading
-from Login import QDLogin_PhoneCode, QDLogin_Password, get_random_phone, check_login_status, check_login_risk
+from Login import QDLogin_PhoneCode, QDLogin_Password, get_random_phone, check_login_status, check_login_risk, check_user_status
 
 import sys
 import os
+import platform
+
+system = platform.system()
+if system == "Windows":
+    sys_run = 1
+elif system == "Linux":
+    sys_run = 2
+else:
+    sys_run = 3
+
 
 def resource_path(relative_path):
     """ 获取资源的绝对路径。适用于开发环境和PyInstaller打包后 """
@@ -77,8 +87,14 @@ class ConfigEditor:
         """初始化主题样式"""
         style = ttk.Style()
         
-        # 设置主题
-        style.theme_use('vista')
+        if sys_run == 1:  # Windows系统
+            style.theme_use('vista')
+        elif sys_run == 2:  # Linux系统
+            style.theme_use('clam')
+        else:  # macOS系统
+            style.theme_use('default')
+        # # 设置主题
+        # style.theme_use('vista')
         
         # 配置Treeview样式
         style.configure("Treeview", 
@@ -252,6 +268,9 @@ class ConfigEditor:
         ttk.Button(btn_frame, text="删除用户", style="Accent.TButton",
                 command=self.remove_user).pack(fill="x", pady=2)
         
+        ttk.Button(btn_frame, text="tokenid状态", style="Accent.TButton",
+            command=self.check_user_status_for_selected_user).pack(fill="x", pady=2)
+        
         ttk.Button(btn_frame, text="检测登录状态", style="Accent.TButton",
             command=self.check_login_status_for_selected_user).pack(fill="x", pady=2)
         
@@ -290,23 +309,27 @@ class ConfigEditor:
         author_frame.pack(padx=10, pady=5, fill="x", expand=False)
 
         # 使用grid布局排列信息
-        ttk.Label(author_frame, text="作者: JaniQuiz", font=("微软雅黑", 10)).grid(
+        ttk.Label(author_frame, text="作者: JaniQuiz      项目: QDjob", font=("微软雅黑", 10)).grid(
             row=0, column=0, sticky="w", padx=5, pady=2)
-        ttk.Label(author_frame, text="项目: QDjob", font=("微软雅黑", 10)).grid(
+        ttk.Label(author_frame, text="本项目为个人项目，仅供学习交流使用，请勿用于非法用途，如有侵权，请联系删除。", font=("微软雅黑", 10)).grid(
             row=1, column=0, sticky="w", padx=5, pady=2)
+        
+        # 添加声明文本
+        ttk.Label(author_frame, text="图形验证码自动处理功能需要获取tokenid，您可以在我的咸鱼上购买", font=("微软雅黑", 10), ).grid(
+            row=2, column=0, sticky="w", padx=5, pady=2)
 
         # 创建超链接标签
         github_link = ttk.Label(author_frame, text="GitHub: https://github.com/JaniQuiz/QDjob",
                             foreground="blue", cursor="hand2", font=("微软雅黑", 10))
-        github_link.grid(row=2, column=0, sticky="w", padx=5, pady=2)
-
-        # 添加声明文本
-        ttk.Label(author_frame, text="验证码处理功能需要获取tokenid，请加TG群获取",
-                style="Help.TLabel").grid(row=3, column=0, sticky="w", padx=5, pady=2)
+        github_link.grid(row=3, column=0, sticky="w", padx=5, pady=2)
         
         telegram_link = ttk.Label(author_frame, text="Telegram: https://t.me/+6xMW_7YK0o1jMDE1",
                             foreground="blue", cursor="hand2", font=("微软雅黑", 10))
-        telegram_link.grid(row=4, column=0, sticky="w", padx=5, pady=2)
+        telegram_link.grid(row=3, column=1, sticky="w", padx=5, pady=2)
+
+        xianyu_link = ttk.Label(author_frame, text="咸鱼: https://www.goofish.com/item?id=1000811249803",
+                            foreground="blue", cursor="hand2", font=("微软雅黑", 10))
+        xianyu_link.grid(row=5, column=0, sticky="w", padx=5, pady=2)
 
         # 绑定超链接点击事件
         def callback(event):
@@ -359,6 +382,47 @@ class ConfigEditor:
                 cookies_status,
                 token_status  # 新增Token状态
             ))
+
+    def check_user_status_for_selected_user(self):
+        """检查用户状态"""
+        selected = self.user_list.selection()
+        if not selected:
+            messagebox.showwarning("警告", "请先选择一个用户")
+            return
+        
+        index = self.user_list.index(selected[0])
+        user = self.users_data[index]
+        username = user["username"]
+        
+        # 检查tokenid状态
+        tokenid = user.get("tokenid", "")
+        if not tokenid:
+            messagebox.showwarning("警告", f"用户 '{username}' 的tokenid未配置")
+            return
+        
+        # 检测usertype状态
+        usertype = user.get("usertype", "")
+        if not usertype:
+            messagebox.showwarning("警告", f"用户 '{username}' 的usertype未配置")
+            return
+        try:
+            data = check_user_status(tokenid, usertype)
+            if not data:
+                messagebox.showwarning("警告", f"用户 '{username}' 的tokenid验证失败\n请检查日志")
+                return
+            expire_time = data.get("expire_time", "")
+            remaining_calls = data.get("remaining_calls", "")
+            if expire_time == "2099-01-01 00:00:00":
+                expire_time = "无限制"
+            if remaining_calls == -1:
+                remaining_calls = "无限制"
+            messagebox.showinfo("用户信息", f"用户 '{username}' 的tokenid已验证成功\n有效期: {expire_time}\n剩余调用次数: {remaining_calls}")
+            return
+        except Exception as e:
+            messagebox.showwarning("警告", f"用户 '{username}' 的usertype验证失败: {e}")
+            return
+        
+
 
     def check_login_status_for_selected_user(self):
         """检测选中用户的登录状态"""
@@ -2503,12 +2567,17 @@ class ConfigEditor:
 
     def execute_task(self):
         """执行任务按钮点击事件"""
-        import sys, os
 
         # 获取当前可执行文件所在目录
         base_path = os.path.dirname(sys.argv[0])
-        qdjob_path = os.path.join(base_path, "QDjob.exe")
-        qdjob_windows_path = os.path.join(base_path, "QDjob_windows.exe")
+        if sys_run == 1:
+            qdjob_path = os.path.join(base_path, "QDjob.exe")
+            qdjob_windows_path = os.path.join(base_path, "QDjob_windows.exe")
+        elif sys_run == 2:
+            qdjob_path = os.path.join(base_path, "QDjob")
+            qdjob_windows_path = os.path.join(base_path, "QDjob_linux")
+        else:
+            messagebox.showerror("错误", "未知系统类型，请使用windows系统或者linux系统运行本程序")
 
         if os.path.exists(qdjob_path):
             import subprocess
@@ -2518,8 +2587,8 @@ class ConfigEditor:
             subprocess.Popen([qdjob_windows_path])
         else:
             error_message = (
-                "❌未找到QDjob.exe或QDjob_windows.exe文件\n\n"
-                "⚠️请将QDjob.exe与本程序放置于同一个文件夹下\n\n"
+                "❌未找到任务执行程序QDjob\n\n"
+                "⚠️请将QDjob与本程序放置于同一个文件夹下\n\n"
                 "⚠️请勿修改文件名"
             )
             messagebox.showerror("执行失败", error_message)

@@ -58,11 +58,6 @@ class ConfigManager:
     
     def _init_users(self) -> List[UserConfig]:
         """初始化用户配置"""
-        # 添加用户数量限制检查
-        if len(self.config['users']) > 3:
-            logger.error("❌ 用户数量超过最大限制3个，请调整配置文件")
-            raise ValueError("用户数量超过最大限制3个")
-        
         users = []
         for user_data in self.config['users']:
             if not self._validate_user_config(user_data):
@@ -134,11 +129,6 @@ class ConfigManager:
 
     def _validate_config(self):
         """全局配置校验"""
-        # 最大用户数量限制说明
-        if 'users' in self.config:
-            if len(self.config['users']) > 3:
-                logger.warning("⚠️ 注意：用户数量超过3个时将被拒绝加载")
-
         # 校验日志级别
         if 'log_level' in self.config:
             valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
@@ -455,13 +445,13 @@ class QidianClient:
         
         if ban_id != 2:
             logger.error(f"非预料的BanId: {ban_id}，可能是设备风控或其他原因")
-            return None
+            return False
         
         # 检查CaptchaAId是否支持
         captcha_a_id = captcha_data.get('CaptchaAId', '')
         if captcha_a_id != "198420051":
             logger.error(f"未实现的验证码类型: {captcha_a_id}，当前仅支持198420051")
-            return None
+            return False
         
         try:
             logger.info("开始进行验证码处理")
@@ -551,7 +541,14 @@ class QidianClient:
                 
                 # 尝试解决验证码
                 captcha_solution = self._solve_captcha(captcha_data)
-                if not captcha_solution:
+                if captcha_solution == False:
+                    return {
+                        'status': 'captcha', 
+                        'reason': '无法处理的验证码类型',
+                        'captcha_data': captcha_data
+                    }
+
+                if captcha_solution == None:
                     return {
                         'status': 'captcha_failed', 
                         'reason': '验证码处理失败',
@@ -629,8 +626,12 @@ class QidianClient:
             }
             
             result = self._make_qd_request(url, data=data, method='POST')
-            
+
             if result.get('Result') == -91002:
+                logger.info("签到成功")
+                return {'status': 'success'}
+            
+            if result.get('Result') == 0 and result.get('Data', {}).get('HasCheckIn', '') == 1:
                 logger.info("签到成功")
                 return {'status': 'success'}
                 
@@ -679,6 +680,10 @@ class QidianClient:
         # 处理特殊结果
         if isinstance(result, dict) and result.get('status') == 'captcha_failed':
             return result
+        
+        # 处理特殊结果
+        if isinstance(result, dict) and result.get('status') == 'captcha':
+            return result
 
         # 检查是否是成功的API响应
         if isinstance(result, dict) and result.get('Result') in (0, "0"):
@@ -710,7 +715,7 @@ class QidianClient:
                     if result.get('status') == 'success':
                         time.sleep(random.randint(1, 2))
                     elif result.get('status') == 'captcha':
-                        logger.warning("遇到验证码，需要处理")
+                        logger.warning("无法处理的验证码类型")
                         return result
                     elif result.get('status') == 'captcha_failed':
                         logger.error(f"验证码处理失败: {result.get('reason')}")
@@ -754,9 +759,12 @@ class QidianClient:
                         
                         if task_result.get('status') == 'success':
                             time.sleep(random.randint(1, 2))
-                        elif task_result.get('status') == 'captcha':
-                            logger.warning("遇到验证码")
-                            return task_result
+                        elif result.get('status') == 'captcha':
+                            logger.warning("无法处理的验证码类型")
+                            return result
+                        elif result.get('status') == 'captcha_failed':
+                            logger.error(f"验证码处理失败: {result.get('reason')}")
+                            return result  # 返回详细失败原因
                         else:
                             logger.error("执行额外章节卡任务失败")
                             continue
@@ -831,6 +839,12 @@ class QidianClient:
                         if result.get('status') == 'success':
                             logger.info("游戏任务领取成功")
                             return {'status': 'success'}
+                        elif result.get('status') == 'captcha':
+                            logger.warning("无法处理的验证码类型")
+                            return result
+                        elif result.get('status') == 'captcha_failed':
+                            logger.error(f"验证码处理失败: {result.get('reason')}")
+                            return result  # 返回详细失败原因
                         else:
                             logger.error("游戏中心任务领取失败")
                             return {'status': 'error', 'error': '未知异常'}
@@ -853,6 +867,12 @@ class QidianClient:
                         if result.get('status') == 'success':
                             logger.info("游戏任务领取成功")
                             return {'status': 'success'}
+                        elif result.get('status') == 'captcha':
+                            logger.warning("无法处理的验证码类型")
+                            return result
+                        elif result.get('status') == 'captcha_failed':
+                            logger.error(f"验证码处理失败: {result.get('reason')}")
+                            return result  # 返回详细失败原因
                         else:
                             logger.error("游戏中心任务领取失败")
                             return {'status': 'error', 'error': '未知异常'}
@@ -1084,7 +1104,7 @@ class TaskProcessor:
                             'reason': reason,
                             'captcha_data': captcha_data
                         }
-                        break
+                        # break
                     elif status == 'captcha':
                         logger.warning(f"任务[{task_name}]因验证码中断")
                         self.task_results[task_name] = result
